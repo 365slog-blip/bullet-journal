@@ -83,13 +83,11 @@ function initNav() {
   document.getElementById('hamburger').addEventListener('click', openDrawer);
   document.getElementById('drawer-overlay').addEventListener('click', closeDrawer);
   document.getElementById('drawer-close').addEventListener('click', closeDrawer);
-
   document.getElementById('theme-btn').addEventListener('click', () => {
     const html = document.documentElement;
     html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
     localStorage.setItem('bjTheme', html.dataset.theme);
   });
-
   document.getElementById('refresh-btn').addEventListener('click', async () => {
     showLoading();
     try { await loadData(); switchTab(S.tab); showToast('새로고침 완료'); }
@@ -118,15 +116,17 @@ async function loadData() {
   const todos    = parseRows(todoRows, ['날짜', '항목', '타입', '완료']);
   S.todoDeep     = todos.filter(t => t.타입 === 'deep');
   S.todoNon      = todos.filter(t => t.타입 === 'non');
-  S.routineSettings = parseRows(routineSetRows,  ['루틴명', '순서']);
-  S.routineRecords  = parseRows(routineRecRows,  ['날짜', '루틴명', '완료', '값']);
-  S.diaryEntries    = parseRows(diaryRows,       ['날짜', '날씨', '기분', '내용']);
-  S.weeklyGoals     = parseRows(weeklyRows,      ['주시작일', '항목', '완료']);
-  S.calEvents       = parseRows(calRows,         ['날짜', '내용', '색상']);
-  S.projects        = parseRows(projRows,        ['ID', '제목', '설명', '색상', '시작일', '종료일', '상태']);
-  S.projTasks       = parseRows(taskRows,        ['프로젝트ID', '내용', '완료', '우선순위']);
-  S.words           = parseRows(wordRows,        ['언어', '단어', '뜻', '예문', '태그']);
-  S.duolingo        = parseRows(duoRows,         ['날짜', '언어', 'XP', '스트릭']);
+  S.routineSettings = parseRows(routineSetRows, ['루틴명', '순서']);
+  S.routineRecords  = parseRows(routineRecRows, ['날짜', '루틴명', '완료', '값']);
+  // diary: ['날짜', '점수', '_x', '내용'] — keep 4 cols for back-compat (col3 unused)
+  S.diaryEntries    = parseRows(diaryRows, ['날짜', '점수', '_x', '내용']);
+  S.weeklyGoals     = parseRows(weeklyRows, ['주시작일', '항목', '완료']);
+  S.calEvents       = parseRows(calRows, ['날짜', '내용', '색상']);
+  S.projects        = parseRows(projRows, ['ID', '제목', '설명', '색상', '시작일', '종료일', '상태', '브레인스토밍']);
+  S.projTasks       = parseRows(taskRows, ['프로젝트ID', '제목', '내용', '완료', '데드라인', '비고']);
+  // words: new columns include 한자, 발음, 예문해석
+  S.words           = parseRows(wordRows, ['언어', '단어', '한자', '뜻', '발음', '예문', '예문해석', '태그']);
+  S.duolingo        = parseRows(duoRows,  ['날짜', '언어', 'XP', '스트릭']);
 
   const wCols = ['제목', '서브', '별점', '날짜', '내용', '이미지'];
   S.writings = [
@@ -150,12 +150,10 @@ async function initDefaultRoutines() {
 // ── HOME ──────────────────────────────────────────────
 function renderHomeRight() {
   document.getElementById('sel-date-label').textContent = fmtKor(S.selDate);
-  const sun = new Date(weekSunday(S.selDate) + 'T00:00:00');
-  const sat = new Date(sun); sat.setDate(sat.getDate() + 6);
-  document.getElementById('week-range-label').textContent =
-    `${sun.getMonth()+1}/${sun.getDate()} – ${sat.getMonth()+1}/${sat.getDate()}`;
-  renderRoutines();
   renderWeeklyGoals();
+  renderWeeklyGoals({ listId: 'diary-weekly-list', addId: 'diary-weekly-add',
+    labelId: 'diary-week-range-label', sun: S.dWeekSun || weekSunday(S.selDate) });
+  renderRoutines();
   renderTodos('deep');
   renderTodos('non');
 }
@@ -175,7 +173,9 @@ function renderCal() {
   for (let i = 0; i < startDow; i++) html += '<div class="cal-cell"></div>';
   for (let d = 1; d <= last.getDate(); d++) {
     const ds = fmtDate(new Date(y, m, d));
-    html += `<div class="cal-cell${ds===today?' today':''}${ds===S.selDate?' selected':''}" data-date="${ds}">
+    const isToday = ds === today;
+    const isSel   = ds === S.selDate;
+    html += `<div class="cal-cell${isToday?' today':''}${isSel?' selected':''}" data-date="${ds}">
       <span class="cal-day-num">${d}</span>
       ${evtSet.has(ds) ? '<i class="cal-dot"></i>' : ''}
     </div>`;
@@ -209,18 +209,17 @@ function selectDate(ds) {
 function renderCalEventPanel() {
   const panel  = document.getElementById('cal-event-panel');
   const events = S.calEvents.filter(e => e.날짜 === S.selDate);
-
   let html = `<div class="cal-event-title">${fmtKor(S.selDate)} 일정</div>`;
   events.forEach(ev => {
     html += `<div class="cal-event-item" data-row="${ev._row}">
-      <span class="cal-evt-dot" style="width:8px;height:8px;border-radius:50%;background:${ev.색상||'var(--accent)'};flex-shrink:0"></span>
+      <span class="cal-evt-dot" style="width:8px;height:8px;border-radius:50%;background:${ev.색상||'var(--accent)'};flex-shrink:0;display:inline-block"></span>
       <span class="cal-event-text">${ev.내용}</span>
       <button class="cal-event-del" data-row="${ev._row}">✕</button>
     </div>`;
   });
   html += `<div class="cal-event-add">
     <input class="cal-event-input" id="event-input" placeholder="+ 일정 입력 후 Enter">
-    <input type="color" id="event-color" value="#5c3d2e" style="width:28px;height:24px;padding:0 2px;border:1px solid var(--border);border-radius:4px;cursor:pointer;flex-shrink:0">
+    <input type="color" id="event-color" value="#5c3d2e" style="width:26px;height:24px;padding:0 2px;border:1px solid var(--border);border-radius:4px;cursor:pointer;flex-shrink:0">
   </div>`;
   panel.innerHTML = html;
 
@@ -234,15 +233,18 @@ function renderCalEventPanel() {
     })
   );
 
+  let evtPending = false;
   document.getElementById('event-input').addEventListener('keydown', async e => {
-    if (e.key !== 'Enter') return;
+    if (e.key !== 'Enter' || evtPending) return;
     const val = e.target.value.trim();
     if (!val) return;
+    evtPending = true;
     const color = document.getElementById('event-color').value;
+    e.target.value = '';
     await sheetsAppend('월간스케줄', [S.selDate, val, color]);
     const rows = await sheetsRead('월간스케줄');
     S.calEvents = parseRows(rows, ['날짜', '내용', '색상']);
-    e.target.value = '';
+    evtPending = false;
     renderCal();
     showToast('일정 추가됨');
   });
@@ -265,12 +267,12 @@ function renderRoutines() {
     return `<div class="routine-item" data-name="${name}">
       <label class="routine-row" style="cursor:pointer">
         <input type="checkbox" class="routine-cb" data-name="${name}" ${done ? 'checked' : ''}>
-        <span class="routine-label${done ? ' done' : ''}">${name}</span>
+        <span class="routine-label${done ? ' done' : ''}" style="font-size:.78rem;line-height:1.3">${name}</span>
       </label>
       ${(isWeight || isDiet) ? `
         <div class="routine-extra${done ? '' : ' hidden'}">
           <input class="routine-val-input" data-name="${name}"
-            placeholder="${isWeight ? '몸무게(kg)' : '식단 내용'}" value="${val}">
+            placeholder="${isWeight ? '몸무게(kg)' : '식단 내용'}" value="${val}" style="font-size:.75rem">
         </div>` : ''}
     </div>`;
   }).join('');
@@ -318,19 +320,20 @@ function openRoutineModal() {
   const modal = document.getElementById('routine-modal');
   modal.classList.remove('hidden');
   renderRoutineModal();
-
   document.getElementById('routine-modal-close').onclick = () => modal.classList.add('hidden');
-
+  let rtPending = false;
   const inp = document.getElementById('routine-add-input');
   inp.onkeydown = async e => {
-    if (e.key !== 'Enter') return;
+    if (e.key !== 'Enter' || rtPending) return;
     const name = inp.value.trim();
     if (!name) return;
+    rtPending = true;
+    inp.value = '';
     const maxOrd = S.routineSettings.reduce((mx, r) => Math.max(mx, +r.순서), 0);
     await sheetsAppend('루틴설정', [name, String(maxOrd + 1)]);
     const rows = await sheetsRead('루틴설정');
     S.routineSettings = parseRows(rows, ['루틴명', '순서']);
-    inp.value = '';
+    rtPending = false;
     renderRoutineModal();
     renderRoutines();
     showToast('루틴 추가됨');
@@ -362,11 +365,23 @@ function renderRoutineModal() {
   );
 }
 
-// ── WEEKLY GOALS ──────────────────────────────────────
-function renderWeeklyGoals() {
-  const sun   = weekSunday(S.selDate);
+// ── WEEKLY GOALS (shared between Home and Diary) ───────
+function renderWeeklyGoals(opts = {}) {
+  const listId  = opts.listId  || 'weekly-list';
+  const addId   = opts.addId   || 'weekly-add';
+  const labelId = opts.labelId || 'week-range-label';
+  const sun     = opts.sun     || weekSunday(S.selDate);
+
+  const labelEl = document.getElementById(labelId);
+  if (labelEl) {
+    const sunD = new Date(sun + 'T00:00:00');
+    const satD = new Date(sunD); satD.setDate(satD.getDate() + 6);
+    labelEl.textContent = `${sunD.getMonth()+1}/${sunD.getDate()} – ${satD.getMonth()+1}/${satD.getDate()}`;
+  }
+
   const goals = S.weeklyGoals.filter(g => g.주시작일 === sun);
-  const list  = document.getElementById('weekly-list');
+  const list  = document.getElementById(listId);
+  if (!list) return;
 
   list.innerHTML = goals.map(g => `
     <div class="inline-item${g.완료 === 'TRUE' ? ' done' : ''}">
@@ -386,6 +401,8 @@ function renderWeeklyGoals() {
       item.classList.toggle('done', cb.checked);
       item.querySelector('.inline-text').classList.toggle('done', cb.checked);
       await sheetsUpdate('주간계획', row, [goal.주시작일, goal.항목, goal.완료]);
+      // sync the other panel
+      syncWeeklyGoals(listId);
     })
   );
 
@@ -395,21 +412,37 @@ function renderWeeklyGoals() {
       await sheetsDelete('주간계획', row);
       S.weeklyGoals = S.weeklyGoals.filter(g => g._row !== row);
       S.weeklyGoals.forEach(g => { if (g._row > row) g._row--; });
-      renderWeeklyGoals();
+      renderWeeklyGoals(opts);
+      syncWeeklyGoals(listId);
     })
   );
 
-  const inp = document.getElementById('weekly-add');
+  const inp = document.getElementById(addId);
+  if (!inp) return;
+  let wgPending = false;
   inp.onkeydown = async e => {
-    if (e.key !== 'Enter') return;
+    if (e.key !== 'Enter' || wgPending) return;
     const val = inp.value.trim();
     if (!val) return;
+    wgPending = true;
+    inp.value = '';
     await sheetsAppend('주간계획', [sun, val, 'FALSE']);
     const rows = await sheetsRead('주간계획');
     S.weeklyGoals = parseRows(rows, ['주시작일', '항목', '완료']);
-    inp.value = '';
-    renderWeeklyGoals();
+    wgPending = false;
+    renderWeeklyGoals(opts);
+    syncWeeklyGoals(listId);
   };
+}
+
+function syncWeeklyGoals(callerListId) {
+  // Re-render the other weekly goals panel
+  if (callerListId === 'weekly-list') {
+    renderWeeklyGoals({ listId: 'diary-weekly-list', addId: 'diary-weekly-add',
+      labelId: 'diary-week-range-label', sun: S.dWeekSun || weekSunday(S.selDate) });
+  } else {
+    renderWeeklyGoals();
+  }
 }
 
 // ── TODOS ─────────────────────────────────────────────
@@ -456,16 +489,19 @@ function renderTodos(type) {
   );
 
   const inp = document.getElementById(addId);
+  let tdPending = false;
   inp.onkeydown = async e => {
-    if (e.key !== 'Enter') return;
+    if (e.key !== 'Enter' || tdPending) return;
     const val = inp.value.trim();
     if (!val) return;
+    tdPending = true;
+    inp.value = '';
     await sheetsAppend('투두', [S.selDate, val, type, 'FALSE']);
     const rows = await sheetsRead('투두');
     const all  = parseRows(rows, ['날짜', '항목', '타입', '완료']);
     S.todoDeep = all.filter(t => t.타입 === 'deep');
     S.todoNon  = all.filter(t => t.타입 === 'non');
-    inp.value = '';
+    tdPending = false;
     renderTodos(type);
   };
 }
@@ -475,11 +511,11 @@ function renderDiaryMiniCal() {
   const y = S.dCalYear, m = S.dCalMonth;
   document.getElementById('dcal-label').textContent = `${y}년 ${m+1}월`;
 
-  const first      = new Date(y, m, 1);
-  const last       = new Date(y, m+1, 0);
-  const startDow   = first.getDay();
-  const today      = todayStr();
-  const entrySet   = new Set(S.diaryEntries.map(e => e.날짜));
+  const first     = new Date(y, m, 1);
+  const last      = new Date(y, m+1, 0);
+  const startDow  = first.getDay();
+  const today     = todayStr();
+  const entrySet  = new Set(S.diaryEntries.map(e => e.날짜));
 
   let html = '';
   for (let i = 0; i < startDow; i++) html += '<div class="diary-mini-cell other-month"></div>';
@@ -497,6 +533,9 @@ function renderDiaryMiniCal() {
       S.dWeekSun = c.dataset.sun;
       renderDiaryMiniCal();
       renderDiaryWeekGrid();
+      // Update diary weekly goals for the new week
+      renderWeeklyGoals({ listId: 'diary-weekly-list', addId: 'diary-weekly-add',
+        labelId: 'diary-week-range-label', sun: S.dWeekSun });
     })
   );
 
@@ -508,6 +547,10 @@ function renderDiaryMiniCal() {
     S.dCalMonth === 11 ? (S.dCalYear++, S.dCalMonth = 0) : S.dCalMonth++;
     renderDiaryMiniCal();
   };
+
+  // render diary weekly goals
+  renderWeeklyGoals({ listId: 'diary-weekly-list', addId: 'diary-weekly-add',
+    labelId: 'diary-week-range-label', sun: S.dWeekSun || weekSunday(S.selDate) });
 }
 
 function renderDiaryWeekGrid() {
@@ -526,38 +569,36 @@ function renderDiaryWeekGrid() {
     const d   = new Date(sun); d.setDate(d.getDate() + i);
     const ds  = fmtDate(d);
     const ent = S.diaryEntries.find(e => e.날짜 === ds) || {};
+    const score   = ent.점수  || '';
+    const content = ent.내용  || '';
+    const dateLabel = `${d.getMonth()+1}/${d.getDate()} (${dowLabels[i]})`;
 
     html += `<div class="diary-day-col${ds===today?' today':''}" data-date="${ds}">
-      <div class="diary-day-head">
-        <span style="font-size:.7rem;color:var(--text3)">${dowLabels[i]}</span>
-        <span style="font-size:.95rem;font-weight:600">${d.getDate()}</span>
+      <div class="diary-day-head" style="margin-bottom:8px">
+        <span style="font-size:.85rem;font-weight:600;color:var(--accent)">${dateLabel}</span>
       </div>
-      <select class="diary-meta-sel" data-date="${ds}" data-field="날씨">
-        <option value="">날씨</option>
-        ${['☀️맑음','⛅흐림','🌧비','❄️눈','🌩천둥'].map(w=>`<option${ent.날씨===w?' selected':''}>${w}</option>`).join('')}
-      </select>
-      <select class="diary-meta-sel" data-date="${ds}" data-field="기분">
-        <option value="">기분</option>
-        ${['😊좋음','😐보통','😢나쁨','😤화남','😴피곤'].map(mo=>`<option${ent.기분===mo?' selected':''}>${mo}</option>`).join('')}
-      </select>
-      <textarea class="diary-textarea" data-date="${ds}" placeholder="오늘 하루...">${ent.내용||''}</textarea>
+      <div class="diary-score-wrap">
+        <span style="font-size:.72rem;color:var(--text3)">오늘의 점수</span>
+        <input type="number" class="diary-score-inp" data-date="${ds}" min="1" max="10" placeholder="점수" value="${score}">
+        <span style="font-size:.72rem;color:var(--text3)">/10</span>
+      </div>
+      <textarea class="diary-textarea" data-date="${ds}" placeholder="오늘 하루...">${content}</textarea>
     </div>`;
   }
   grid.innerHTML = html;
 
   const save = async ds => {
-    const col     = grid.querySelector(`.diary-day-col[data-date="${ds}"]`);
-    const weather = col.querySelector('[data-field="날씨"]').value;
-    const mood    = col.querySelector('[data-field="기분"]').value;
-    const text    = col.querySelector('.diary-textarea').value;
-    const entry   = S.diaryEntries.find(e => e.날짜 === ds);
+    const col   = grid.querySelector(`.diary-day-col[data-date="${ds}"]`);
+    const score = col.querySelector('.diary-score-inp').value;
+    const text  = col.querySelector('.diary-textarea').value;
+    const entry = S.diaryEntries.find(e => e.날짜 === ds);
     if (entry) {
-      entry.날씨 = weather; entry.기분 = mood; entry.내용 = text;
-      await sheetsUpdate('하루일기', entry._row, [ds, weather, mood, text]);
+      entry.점수 = score; entry.내용 = text;
+      await sheetsUpdate('하루일기', entry._row, [ds, score, '', text]);
     } else {
-      await sheetsAppend('하루일기', [ds, weather, mood, text]);
+      await sheetsAppend('하루일기', [ds, score, '', text]);
       const rows = await sheetsRead('하루일기');
-      S.diaryEntries = parseRows(rows, ['날짜', '날씨', '기분', '내용']);
+      S.diaryEntries = parseRows(rows, ['날짜', '점수', '_x', '내용']);
       renderDiaryMiniCal();
     }
   };
@@ -566,8 +607,8 @@ function renderDiaryWeekGrid() {
     let timer;
     ta.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => save(ta.dataset.date), 1500); });
   });
-  grid.querySelectorAll('.diary-meta-sel').forEach(sel =>
-    sel.addEventListener('change', () => save(sel.dataset.date))
+  grid.querySelectorAll('.diary-score-inp').forEach(inp =>
+    inp.addEventListener('change', () => save(inp.dataset.date))
   );
 }
 
@@ -629,40 +670,55 @@ function renderProjectDetail() {
         <button class="btn-outline-sm" id="proj-edit-btn">수정</button>
       </div>
     </div>
-    <div class="h-section">
+    <div class="h-section" style="margin-bottom:14px">
       <div class="h-sec-head">
         <h3 class="h-sec-title">태스크 <span style="font-size:.75rem;font-weight:400;color:var(--text3)">${done}/${tasks.length} (${pct}%)</span></h3>
+        <button class="btn-outline-sm" id="task-add-btn">+ 태스크</button>
       </div>
       <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:${pct}%"></div></div>
       <div id="proj-task-list"></div>
-      <input class="inline-add-input" id="proj-task-add" placeholder="+ 태스크 입력 후 Enter">
+      <div id="task-form-area"></div>
+    </div>
+    <div class="h-section brainstorm-section">
+      <div class="h-sec-head"><h3 class="h-sec-title">💡 브레인스토밍</h3></div>
+      <textarea class="brainstorm-textarea" id="brainstorm-ta" placeholder="아이디어, 메모, 계획을 자유롭게 작성하세요...">${proj.브레인스토밍||''}</textarea>
     </div>
   `;
 
   document.getElementById('proj-edit-btn').onclick = () => openProjectForm(proj);
+  document.getElementById('task-add-btn').onclick  = () => openTaskForm(proj);
   renderProjTasks(proj, tasks);
-  document.getElementById('proj-task-add').onkeydown = async e => {
-    if (e.key !== 'Enter') return;
-    const val = e.target.value.trim();
-    if (!val) return;
-    await sheetsAppend('프로젝트태스크', [proj.ID, val, 'FALSE', '']);
-    const rows = await sheetsRead('프로젝트태스크');
-    S.projTasks = parseRows(rows, ['프로젝트ID', '내용', '완료', '우선순위']);
-    e.target.value = '';
-    renderProjectDetail();
-  };
+
+  const bsTa = document.getElementById('brainstorm-ta');
+  let bsTimer;
+  bsTa.addEventListener('input', () => {
+    clearTimeout(bsTimer);
+    bsTimer = setTimeout(async () => {
+      proj.브레인스토밍 = bsTa.value;
+      await sheetsUpdate('프로젝트', proj._row,
+        [proj.ID, proj.제목, proj.설명, proj.색상, proj.시작일, proj.종료일, proj.상태, bsTa.value]);
+    }, 1500);
+  });
 }
 
 function renderProjTasks(proj, tasks) {
   const list = document.getElementById('proj-task-list');
   if (!list) return;
+
   list.innerHTML = tasks.map(t => `
-    <div class="inline-item${t.완료==='TRUE'?' done':''}">
-      <input type="checkbox" class="inline-cb" data-row="${t._row}" ${t.완료==='TRUE'?'checked':''}>
-      <span class="inline-text${t.완료==='TRUE'?' done':''}">${t.내용}</span>
-      <button class="inline-del" data-row="${t._row}">✕</button>
+    <div class="proj-task-card${t.완료==='TRUE'?' done-card':''}">
+      <div class="proj-task-card-top">
+        <input type="checkbox" class="inline-cb" data-row="${t._row}" ${t.완료==='TRUE'?'checked':''}>
+        <span class="proj-task-title${t.완료==='TRUE'?' done':''}">${t.제목||t.내용||'(제목 없음)'}</span>
+        ${t.데드라인 ? `<span class="proj-task-deadline">${t.데드라인}</span>` : ''}
+        <button class="inline-del" data-row="${t._row}">✕</button>
+      </div>
+      ${(t.내용||t.비고) ? `<div class="proj-task-body">
+        ${t.내용 ? `<p class="proj-task-content">${t.내용}</p>` : ''}
+        ${t.비고 ? `<p class="proj-task-note">📌 ${t.비고}</p>` : ''}
+      </div>` : ''}
     </div>
-  `).join('') || '<p style="font-size:.82rem;color:var(--text3)">태스크가 없습니다.</p>';
+  `).join('') || '<p style="font-size:.82rem;color:var(--text3);padding:8px 0">태스크가 없습니다.</p>';
 
   list.querySelectorAll('.inline-cb').forEach(cb =>
     cb.addEventListener('change', async () => {
@@ -670,10 +726,8 @@ function renderProjTasks(proj, tasks) {
       const task = S.projTasks.find(t => t._row === row);
       if (!task) return;
       task.완료 = cb.checked ? 'TRUE' : 'FALSE';
-      const item = cb.closest('.inline-item');
-      item.classList.toggle('done', cb.checked);
-      item.querySelector('.inline-text').classList.toggle('done', cb.checked);
-      await sheetsUpdate('프로젝트태스크', row, [task.프로젝트ID, task.내용, task.완료, task.우선순위]);
+      await sheetsUpdate('프로젝트태스크', row,
+        [task.프로젝트ID, task.제목, task.내용, task.완료, task.데드라인, task.비고]);
       renderProjectDetail();
     })
   );
@@ -687,6 +741,42 @@ function renderProjTasks(proj, tasks) {
       renderProjectDetail();
     })
   );
+}
+
+function openTaskForm(proj) {
+  const area = document.getElementById('task-form-area');
+  if (!area) return;
+  area.innerHTML = `
+    <div class="task-form">
+      <input class="form-input" id="tf-title" placeholder="제목 *">
+      <textarea class="form-input" id="tf-content" rows="2" placeholder="내용" style="resize:vertical"></textarea>
+      <input type="date" class="form-input" id="tf-deadline" placeholder="데드라인">
+      <input class="form-input" id="tf-note" placeholder="비고">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-outline" id="tf-cancel">취소</button>
+        <button class="btn-primary" id="tf-save">저장</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('tf-cancel').onclick = () => { area.innerHTML = ''; };
+  let tfPending = false;
+  document.getElementById('tf-save').onclick = async () => {
+    if (tfPending) return;
+    const title = document.getElementById('tf-title').value.trim();
+    if (!title) { showToast('제목을 입력하세요', true); return; }
+    tfPending = true;
+    const row = [proj.ID, title,
+      document.getElementById('tf-content').value,
+      'FALSE',
+      document.getElementById('tf-deadline').value,
+      document.getElementById('tf-note').value,
+    ];
+    await sheetsAppend('프로젝트태스크', row);
+    const rows = await sheetsRead('프로젝트태스크');
+    S.projTasks = parseRows(rows, ['프로젝트ID', '제목', '내용', '완료', '데드라인', '비고']);
+    tfPending = false;
+    renderProjectDetail();
+  };
 }
 
 function openProjectForm(proj) {
@@ -729,15 +819,16 @@ function openProjectForm(proj) {
       시작일: document.getElementById('pf-start').value,
       종료일: document.getElementById('pf-end').value,
       상태: document.getElementById('pf-status').value,
+      브레인스토밍: isEdit ? (proj.브레인스토밍||'') : '',
     };
-    const row = [data.ID, data.제목, data.설명, data.색상, data.시작일, data.종료일, data.상태];
+    const row = [data.ID, data.제목, data.설명, data.색상, data.시작일, data.종료일, data.상태, data.브레인스토밍];
     if (isEdit) {
       await sheetsUpdate('프로젝트', proj._row, row);
       Object.assign(proj, data);
     } else {
       await sheetsAppend('프로젝트', row);
       const rows = await sheetsRead('프로젝트');
-      S.projects = parseRows(rows, ['ID', '제목', '설명', '색상', '시작일', '종료일', '상태']);
+      S.projects = parseRows(rows, ['ID', '제목', '설명', '색상', '시작일', '종료일', '상태', '브레인스토밍']);
     }
     el.remove();
     isEdit ? renderProjectDetail() : renderProjectGallery();
@@ -776,44 +867,30 @@ function renderLangBody() {
   else if (S.langSub === 'duolingo') renderDuolingo(body);
 }
 
-function getFilteredWords() {
-  const tagMap = { know: '알아요', unsure: '헷갈림', dontknow: '몰라요' };
-  return S.words.filter(w => {
-    if (w.언어 !== S.lang) return false;
-    if (S.wordFilter !== 'all' && w.태그 !== tagMap[S.wordFilter]) return false;
-    return true;
-  });
+function getWordsForLang() {
+  return S.words.filter(w => w.언어 === S.lang);
 }
 
 function renderWords(body) {
   if (S.flashMode) { renderFlashCard(body); return; }
-  const filterMap = { all: '전체', know: '알아요', unsure: '헷갈림', dontknow: '몰라요' };
 
   body.innerHTML = `
     <div class="word-toolbar">
-      <div class="filter-chips">
-        ${Object.entries(filterMap).map(([k,v]) =>
-          `<button class="filter-chip${S.wordFilter===k?' active':''}" data-f="${k}">${v}</button>`
-        ).join('')}
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input style="padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;color:var(--text);width:110px" id="word-search" placeholder="검색">
+      <input style="padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;color:var(--text);width:150px" id="word-search" placeholder="단어/뜻 검색">
+      <div style="display:flex;gap:8px">
         <button class="btn-outline-sm" id="flash-btn">플래시카드</button>
         <button class="btn-primary" style="font-size:.82rem;padding:7px 14px" id="add-word-btn">+ 단어</button>
       </div>
     </div>
     <div class="word-table-wrap">
       <table class="word-table">
-        <thead><tr><th>단어</th><th>뜻</th><th>예문</th><th>태그</th><th></th></tr></thead>
+        <thead><tr><th>단어</th><th>한자</th><th>뜻</th><th>발음</th><th>예문</th><th>예문해석</th><th></th></tr></thead>
         <tbody id="word-tbody"></tbody>
       </table>
     </div>
     <div id="word-form-area"></div>
   `;
 
-  body.querySelectorAll('.filter-chip').forEach(b =>
-    b.addEventListener('click', () => { S.wordFilter = b.dataset.f; renderWords(body); })
-  );
   document.getElementById('flash-btn').onclick = () => {
     S.flashMode = true; S.flashIdx = 0; S.flashFlipped = false; renderLangBody();
   };
@@ -825,23 +902,25 @@ function renderWords(body) {
 function renderWordTable(body, search) {
   const tbody = document.getElementById('word-tbody');
   if (!tbody) return;
-  let list = getFilteredWords();
+  let list = getWordsForLang();
   if (search) {
     const q = search.toLowerCase();
     list = list.filter(w => w.단어.toLowerCase().includes(q) || w.뜻.includes(q));
   }
   tbody.innerHTML = list.map(w => `
     <tr>
-      <td>${w.단어}</td>
+      <td><strong>${w.단어}</strong></td>
+      <td style="color:var(--text3)">${w.한자||''}</td>
       <td>${w.뜻}</td>
+      <td style="font-size:.75rem;color:var(--text2)">${w.발음||''}</td>
       <td style="font-size:.75rem;color:var(--text3)">${w.예문||''}</td>
-      <td><span class="memo-badge ${w.태그==='알아요'?'mem-yes':'mem-no'}">${w.태그||''}</span></td>
+      <td style="font-size:.75rem;color:var(--text3)">${w.예문해석||''}</td>
       <td style="white-space:nowrap">
-        <button class="word-save-btn" data-row="${w._row}" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text2);padding:2px 6px;font-size:.72rem">✎</button>
-        <button class="word-del-btn"  data-row="${w._row}">✕</button>
+        <button class="word-save-btn" data-row="${w._row}" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text2);padding:2px 6px;font-size:.72rem;margin-right:2px">✎</button>
+        <button class="word-del-btn" data-row="${w._row}">✕</button>
       </td>
     </tr>
-  `).join('') || `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3)">단어가 없습니다</td></tr>`;
+  `).join('') || `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">단어가 없습니다</td></tr>`;
 
   tbody.querySelectorAll('.word-del-btn').forEach(b =>
     b.addEventListener('click', async () => {
@@ -869,12 +948,20 @@ function showWordForm(body, word) {
   area.innerHTML = `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:14px;display:flex;flex-direction:column;gap:10px">
       <h4 style="font-size:.88rem;font-weight:600">${isEdit ? '단어 수정' : '단어 추가'}</h4>
-      <input class="form-input" id="wf-word" placeholder="단어" value="${isEdit ? word.단어 : ''}">
-      <input class="form-input" id="wf-mean" placeholder="뜻" value="${isEdit ? word.뜻 : ''}">
-      <input class="form-input" id="wf-ex" placeholder="예문" value="${isEdit ? (word.예문||'') : ''}">
-      <select class="form-input" id="wf-tag">
-        ${['알아요','헷갈림','몰라요'].map(t=>`<option${isEdit&&word.태그===t?' selected':''}>${t}</option>`).join('')}
-      </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label style="font-size:.72rem;color:var(--text3)">단어 *</label>
+          <input class="form-input" id="wf-word" value="${isEdit?word.단어:''}"></div>
+        <div><label style="font-size:.72rem;color:var(--text3)">한자</label>
+          <input class="form-input" id="wf-kanji" value="${isEdit?(word.한자||''):''}"></div>
+        <div><label style="font-size:.72rem;color:var(--text3)">뜻 *</label>
+          <input class="form-input" id="wf-mean" value="${isEdit?word.뜻:''}"></div>
+        <div><label style="font-size:.72rem;color:var(--text3)">발음</label>
+          <input class="form-input" id="wf-pron" value="${isEdit?(word.발음||''):''}"></div>
+      </div>
+      <div><label style="font-size:.72rem;color:var(--text3)">예문</label>
+        <input class="form-input" id="wf-ex" value="${isEdit?(word.예문||''):''}"></div>
+      <div><label style="font-size:.72rem;color:var(--text3)">예문 해석</label>
+        <input class="form-input" id="wf-exmean" value="${isEdit?(word.예문해석||''):''}"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn-outline" id="wf-cancel">취소</button>
         <button class="btn-primary" id="wf-save">저장</button>
@@ -886,14 +973,22 @@ function showWordForm(body, word) {
     const w = document.getElementById('wf-word').value.trim();
     const m = document.getElementById('wf-mean').value.trim();
     if (!w || !m) { showToast('단어와 뜻을 입력하세요', true); return; }
-    const row = [S.lang, w, m, document.getElementById('wf-ex').value, document.getElementById('wf-tag').value];
+    const tag = isEdit ? (word.태그 || '몰라요') : '몰라요';
+    const row = [S.lang, w,
+      document.getElementById('wf-kanji').value,
+      m,
+      document.getElementById('wf-pron').value,
+      document.getElementById('wf-ex').value,
+      document.getElementById('wf-exmean').value,
+      tag,
+    ];
     if (isEdit) {
       await sheetsUpdate('단어장', word._row, row);
-      Object.assign(word, { 언어: S.lang, 단어: w, 뜻: m, 예문: row[3], 태그: row[4] });
+      Object.assign(word, { 언어:S.lang, 단어:w, 한자:row[2], 뜻:m, 발음:row[4], 예문:row[5], 예문해석:row[6], 태그:tag });
     } else {
       await sheetsAppend('단어장', row);
       const rows = await sheetsRead('단어장');
-      S.words = parseRows(rows, ['언어', '단어', '뜻', '예문', '태그']);
+      S.words = parseRows(rows, ['언어', '단어', '한자', '뜻', '발음', '예문', '예문해석', '태그']);
     }
     area.innerHTML = '';
     renderWords(body);
@@ -902,7 +997,7 @@ function showWordForm(body, word) {
 }
 
 function renderFlashCard(body) {
-  const list = getFilteredWords();
+  const list = getWordsForLang();
   if (!list.length) {
     body.innerHTML = `<div class="flashcard-wrap">
       <p style="color:var(--text3)">단어가 없습니다.</p>
@@ -917,7 +1012,13 @@ function renderFlashCard(body) {
       <div class="fc-count">${(S.flashIdx % list.length) + 1} / ${list.length}</div>
       <div class="flashcard${S.flashFlipped ? ' flipped' : ''}">
         <div class="fc-word">${cur.단어}</div>
-        <div class="fc-meaning">${cur.뜻}${cur.예문 ? `<div class="fc-reading">${cur.예문}</div>` : ''}</div>
+        ${cur.한자 ? `<div class="fc-reading" style="font-size:1rem">${cur.한자}</div>` : ''}
+        <div class="fc-meaning">
+          ${cur.뜻}
+          ${cur.발음 ? `<div class="fc-reading">[${cur.발음}]</div>` : ''}
+          ${cur.예문 ? `<div class="fc-reading" style="font-size:.75rem;margin-top:8px;color:var(--text3)">${cur.예문}</div>` : ''}
+          ${cur.예문해석 ? `<div class="fc-reading" style="font-size:.72rem;color:var(--text3)">${cur.예문해석}</div>` : ''}
+        </div>
         <div class="fc-hint">탭하여 뒤집기</div>
       </div>
       <div class="fc-btns">
@@ -925,7 +1026,12 @@ function renderFlashCard(body) {
         <button class="btn-outline" id="fc-flip">뒤집기</button>
         <button class="btn-outline" id="fc-next">다음 ▷</button>
       </div>
-      <button class="btn-outline-sm" style="margin-top:6px" id="fc-exit">목록으로</button>
+      ${S.flashFlipped ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+        <button class="btn-outline-sm" id="fc-dontknow" style="color:var(--danger);border-color:var(--danger)">😅 몰라요</button>
+        <button class="btn-outline-sm" id="fc-unsure" style="color:var(--warn);border-color:var(--warn)">🤔 헷갈려요</button>
+        <button class="btn-outline-sm" id="fc-know" style="color:var(--success);border-color:var(--success)">😊 알아요</button>
+      </div>` : ''}
+      <button class="btn-outline-sm" style="margin-top:10px" id="fc-exit">목록으로</button>
     </div>
   `;
   const flip = () => { S.flashFlipped = !S.flashFlipped; renderFlashCard(body); };
@@ -940,6 +1046,21 @@ function renderFlashCard(body) {
     S.flashFlipped = false; renderFlashCard(body);
   };
   document.getElementById('fc-exit').onclick = () => { S.flashMode = false; renderLangBody(); };
+
+  const setTag = async tag => {
+    cur.태그 = tag;
+    const row = [cur.언어, cur.단어, cur.한자, cur.뜻, cur.발음, cur.예문, cur.예문해석, tag];
+    await sheetsUpdate('단어장', cur._row, row);
+    showToast(`"${cur.단어}" → ${tag}`);
+    S.flashIdx = (S.flashIdx + 1) % list.length;
+    S.flashFlipped = false;
+    renderFlashCard(body);
+  };
+  if (S.flashFlipped) {
+    document.getElementById('fc-dontknow').onclick = () => setTag('몰라요');
+    document.getElementById('fc-unsure').onclick   = () => setTag('헷갈려요');
+    document.getElementById('fc-know').onclick     = () => setTag('알아요');
+  }
 }
 
 function renderGrammar(body) {
@@ -948,35 +1069,64 @@ function renderGrammar(body) {
   body.innerHTML = `
     <div class="note-cards" id="grammar-cards"></div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:14px;display:flex;flex-direction:column;gap:10px">
-      <input class="form-input" id="gr-title" placeholder="제목">
-      <textarea class="form-input" id="gr-body" rows="3" placeholder="문법 설명, 예문 등" style="resize:vertical"></textarea>
-      <button class="btn-primary" id="gr-save" style="align-self:flex-end">추가</button>
+      <h4 style="font-size:.85rem;font-weight:600">새 문법 노트 추가</h4>
+      <input class="form-input" id="gr-title" placeholder="제목 *">
+      <textarea class="form-input" id="gr-body" rows="4" placeholder="문법 설명, 예문 등" style="resize:vertical"></textarea>
+      <button class="btn-primary" id="gr-save" style="align-self:flex-end">저장</button>
     </div>
   `;
   const cards = document.getElementById('grammar-cards');
   cards.innerHTML = items.map((it, i) => `
-    <div class="note-card">
+    <div class="note-card" data-i="${i}" style="cursor:pointer">
       <div class="note-card-top">${it.title}</div>
       <div class="note-card-body">${it.content}</div>
       <button class="word-del-btn" style="margin-top:8px;font-size:.72rem" data-i="${i}">삭제</button>
     </div>
   `).join('') || '<p style="color:var(--text3);font-size:.85rem;grid-column:1/-1">문법 노트가 없습니다.</p>';
 
+  // Card click → popup
+  cards.querySelectorAll('.note-card').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.classList.contains('word-del-btn')) return;
+      const i = +card.dataset.i;
+      showGrammarPopup(items[i], i, key, items, body);
+    });
+  });
+
   cards.querySelectorAll('.word-del-btn').forEach(b =>
-    b.addEventListener('click', () => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
       items.splice(+b.dataset.i, 1);
       localStorage.setItem(key, JSON.stringify(items));
       renderGrammar(body);
     })
   );
+
   document.getElementById('gr-save').onclick = () => {
     const title = document.getElementById('gr-title').value.trim();
     if (!title) { showToast('제목을 입력하세요', true); return; }
     items.push({ title, content: document.getElementById('gr-body').value });
     localStorage.setItem(key, JSON.stringify(items));
     renderGrammar(body);
-    showToast('추가됨');
+    showToast('저장됨');
   };
+}
+
+function showGrammarPopup(item, idx, key, items, body) {
+  const el = document.createElement('div');
+  el.className = 'grammar-popup-overlay';
+  el.innerHTML = `
+    <div class="grammar-popup-box">
+      <div class="grammar-popup-head">
+        <h3 style="font-family:var(--font-h)">${item.title}</h3>
+        <button class="icon-btn" id="gp-close">✕</button>
+      </div>
+      <div class="grammar-popup-body">${item.content || '내용 없음'}</div>
+    </div>
+  `;
+  document.body.appendChild(el);
+  el.querySelector('#gp-close').onclick = () => el.remove();
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
 }
 
 function renderPhrases(body) {
@@ -985,10 +1135,10 @@ function renderPhrases(body) {
   body.innerHTML = `
     <div class="note-cards" id="phrase-cards"></div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:14px;display:flex;flex-direction:column;gap:10px">
-      <input class="form-input" id="ph-expr" placeholder="표현">
+      <input class="form-input" id="ph-expr" placeholder="표현 *">
       <input class="form-input" id="ph-mean" placeholder="뜻">
       <textarea class="form-input" id="ph-ex" rows="2" placeholder="예문" style="resize:vertical"></textarea>
-      <button class="btn-primary" id="ph-save" style="align-self:flex-end">추가</button>
+      <button class="btn-primary" id="ph-save" style="align-self:flex-end">저장</button>
     </div>
   `;
   const cards = document.getElementById('phrase-cards');
@@ -1014,7 +1164,7 @@ function renderPhrases(body) {
     items.push({ expr, mean: document.getElementById('ph-mean').value, ex: document.getElementById('ph-ex').value });
     localStorage.setItem(key, JSON.stringify(items));
     renderPhrases(body);
-    showToast('추가됨');
+    showToast('저장됨');
   };
 }
 
@@ -1043,11 +1193,14 @@ function renderDuolingo(body) {
       </table>
     </div>
   `;
+  let duoPending = false;
   document.getElementById('duo-save').onclick = async () => {
+    if (duoPending) return;
     const date   = document.getElementById('duo-date').value;
     const xp     = document.getElementById('duo-xp').value;
     const streak = document.getElementById('duo-streak').value;
     if (!date || !xp) { showToast('날짜와 XP를 입력하세요', true); return; }
+    duoPending = true;
     const existing = S.duolingo.find(d => d.날짜 === date && d.언어 === S.lang);
     if (existing) {
       await sheetsUpdate('듀오링고', existing._row, [date, S.lang, xp, streak]);
@@ -1057,6 +1210,7 @@ function renderDuolingo(body) {
       const rows = await sheetsRead('듀오링고');
       S.duolingo = parseRows(rows, ['날짜', '언어', 'XP', '스트릭']);
     }
+    duoPending = false;
     renderDuolingo(body);
     showToast('기록됨');
   };
@@ -1080,11 +1234,12 @@ function renderWritingGallery() {
       <div class="writing-cover">${w.이미지 ? `<img src="${w.이미지}" alt="">` : '📖'}</div>
       <div class="writing-card-info">
         <div class="writing-card-cat">${w._cat}</div>
-        <div class="writing-card-title">${w.제목}</div>
-        <div class="writing-card-stars">${starsHTML(w.별점)} <span style="font-size:.7rem;color:var(--text3)">${w.별점||''}</span></div>
+        <div class="writing-card-title">${w.제목}${w.서브?` <span style="font-size:.72rem;color:var(--text3);font-weight:400">· ${w.서브}</span>`:''}</div>
+        <div class="writing-card-stars">${starsHTML(w.별점)} <span style="font-size:.7rem;color:var(--text3)">${w.별점}</span></div>
+        <div class="writing-card-date">${w.날짜}</div>
       </div>
     </div>
-  `).join('') || '<p class="empty-state" style="grid-column:1/-1"><span class="empty-icon">✏️</span><br>아직 글이 없습니다</p>';
+  `).join('') || '<p class="empty-state"><span class="empty-icon">✏️</span><br>아직 글이 없습니다</p>';
 
   grid.querySelectorAll('.writing-card').forEach(c =>
     c.addEventListener('click', () => {
@@ -1137,7 +1292,7 @@ function openWritingForm(item) {
     </div>
     <div class="form-group">
       <label class="form-label">이미지</label>
-      ${item && item.이미지 ? `<img src="${item.이미지}" style="width:100px;height:auto;border-radius:6px;margin-bottom:6px;display:block">` : ''}
+      ${item && item.이미지 ? `<img src="${item.이미지}" style="width:80px;height:auto;border-radius:4px;margin-bottom:6px;display:block">` : ''}
       <input type="file" accept="image/*" id="wf-img">
     </div>
     <button class="btn-primary" id="wf-submit" style="width:100%">저장</button>
@@ -1159,9 +1314,12 @@ function openWritingForm(item) {
     document.getElementById('wf-stars-disp').textContent = starsHTML(selRating);
   });
 
+  let wfPending = false;
   document.getElementById('wf-submit').onclick = async () => {
+    if (wfPending) return;
     const title = document.getElementById('wf-title').value.trim();
     if (!title) { showToast('제목을 입력하세요', true); return; }
+    wfPending = true;
     showLoading();
     let imgUrl = item ? (item.이미지||'') : '';
     const imgFile = document.getElementById('wf-img').files[0];
@@ -1169,14 +1327,8 @@ function openWritingForm(item) {
       try { imgUrl = await uploadToDrive(imgFile); }
       catch (e) { console.error(e); showToast('이미지 업로드 실패', true); }
     }
-    const row = [
-      title,
-      document.getElementById('wf-sub').value,
-      String(selRating),
-      document.getElementById('wf-date').value,
-      document.getElementById('wf-content').value,
-      imgUrl,
-    ];
+    const row = [title, document.getElementById('wf-sub').value, String(selRating),
+      document.getElementById('wf-date').value, document.getElementById('wf-content').value, imgUrl];
     if (item) {
       await sheetsUpdate(item._sheet, item._row, row);
       Object.assign(item, { 제목:row[0], 서브:row[1], 별점:row[2], 날짜:row[3], 내용:row[4], 이미지:row[5] });
@@ -1188,6 +1340,7 @@ function openWritingForm(item) {
       S.writings = [...S.writings.filter(w => w._cat !== selCat), ...parsed]
         .sort((a, b) => b.날짜.localeCompare(a.날짜));
     }
+    wfPending = false;
     hideLoading();
     renderWritingGallery();
     showToast('저장됨');
@@ -1295,7 +1448,6 @@ function renderStats() {
     </div>
   `;
 
-  // Weight SVG chart
   const wrap = document.getElementById('weight-chart-wrap');
   if (!wPts.length) {
     wrap.innerHTML = '<p style="color:var(--text3);font-size:.82rem">체중 기록 없음</p>';

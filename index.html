@@ -119,34 +119,34 @@
     <div class="tab-pane active" id="tab-home">
       <div class="home-layout">
 
-        <!-- Left: Calendar -->
-        <div class="home-left">
-          <div class="cal-head">
-            <button class="cal-nav" id="cal-prev">‹</button>
-            <span class="cal-month-label" id="cal-month-label"></span>
-            <button class="cal-nav" id="cal-next">›</button>
+        <!-- Top row: Calendar + Routine -->
+        <div class="home-top">
+          <div class="home-left">
+            <div class="cal-head">
+              <button class="cal-nav" id="cal-prev">‹</button>
+              <span class="cal-month-label" id="cal-month-label"></span>
+              <button class="cal-nav" id="cal-next">›</button>
+            </div>
+            <div class="cal-dow">
+              <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+            </div>
+            <div class="cal-grid" id="cal-grid"></div>
+            <div class="cal-event-panel" id="cal-event-panel"></div>
           </div>
-          <div class="cal-dow">
-            <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+          <div class="home-routine">
+            <div class="sel-date-label" id="sel-date-label"></div>
+            <section class="h-section">
+              <div class="h-sec-head">
+                <h3 class="h-sec-title">Daily Routine</h3>
+                <button class="h-sec-action" id="routine-settings-btn">관리</button>
+              </div>
+              <div id="routine-list"></div>
+            </section>
           </div>
-          <div class="cal-grid" id="cal-grid"></div>
-          <div class="cal-event-panel" id="cal-event-panel"></div>
         </div>
 
-        <!-- Right: Sections -->
-        <div class="home-right" id="home-right">
-          <div class="sel-date-label" id="sel-date-label"></div>
-
-          <!-- Daily Routine -->
-          <section class="h-section">
-            <div class="h-sec-head">
-              <h3 class="h-sec-title">Daily Routine</h3>
-              <button class="h-sec-action" id="routine-settings-btn">관리</button>
-            </div>
-            <div id="routine-list"></div>
-          </section>
-
-          <!-- Weekly Goal -->
+        <!-- Bottom row: Weekly | Deep | Non-Deep -->
+        <div class="home-bottom">
           <section class="h-section">
             <div class="h-sec-head">
               <h3 class="h-sec-title">Weekly Goal</h3>
@@ -155,8 +155,6 @@
             <div id="weekly-list"></div>
             <input class="inline-add-input" id="weekly-add" placeholder="+ 목표를 입력하고 Enter">
           </section>
-
-          <!-- To-Do Deep -->
           <section class="h-section">
             <div class="h-sec-head">
               <h3 class="h-sec-title">To-Do <span class="badge deep">Deep</span></h3>
@@ -164,8 +162,6 @@
             <div id="todo-deep-list"></div>
             <input class="inline-add-input" id="todo-deep-add" placeholder="+ 할 일을 입력하고 Enter">
           </section>
-
-          <!-- To-Do Non-Deep -->
           <section class="h-section">
             <div class="h-sec-head">
               <h3 class="h-sec-title">To-Do <span class="badge non">Non-Deep</span></h3>
@@ -180,16 +176,26 @@
     <!-- DIARY TAB -->
     <div class="tab-pane hidden" id="tab-diary">
       <div class="diary-wrap">
-        <div class="diary-mini-wrap">
-          <div class="diary-mini-head">
-            <button class="cal-nav" id="dcal-prev">‹</button>
-            <span id="dcal-label"></span>
-            <button class="cal-nav" id="dcal-next">›</button>
+        <div class="diary-top">
+          <div class="diary-mini-wrap">
+            <div class="diary-mini-head">
+              <button class="cal-nav" id="dcal-prev">‹</button>
+              <span id="dcal-label"></span>
+              <button class="cal-nav" id="dcal-next">›</button>
+            </div>
+            <div class="diary-mini-dow">
+              <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+            </div>
+            <div class="diary-mini-grid" id="diary-mini-grid"></div>
           </div>
-          <div class="diary-mini-dow">
-            <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
-          </div>
-          <div class="diary-mini-grid" id="diary-mini-grid"></div>
+          <section class="h-section diary-goals-section">
+            <div class="h-sec-head">
+              <h3 class="h-sec-title">Weekly Goal</h3>
+              <span class="week-range-label" id="diary-week-range-label"></span>
+            </div>
+            <div id="diary-weekly-list"></div>
+            <input class="inline-add-input" id="diary-weekly-add" placeholder="+ 목표를 입력하고 Enter">
+          </section>
         </div>
         <div class="diary-week-grid" id="diary-week-grid"></div>
       </div>
