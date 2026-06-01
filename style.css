@@ -392,9 +392,11 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 }
 .diary-textarea:focus{border-color:var(--accent);}
 .diary-save-btn{
-  align-self:flex-end;padding:4px 10px;font-size:.72rem;
+  width:100%;padding:5px 0;font-size:.75rem;font-weight:600;
   background:var(--accent);color:#fff;border-radius:6px;
+  cursor:pointer;border:none;flex-shrink:0;
 }
+.diary-save-btn:disabled{opacity:.65;cursor:default;}
 [data-theme="dark"] .diary-save-btn{color:var(--bg);}
 
 /* ── PROJECT TAB ────────────────────────────────────────── */
@@ -776,7 +778,12 @@ h1,h2,h3,h4{font-family:var(--font-b);}
   .home-routine{grid-column:1;}
   .home-left,.home-routine{position:static;}
   .diary-top{grid-template-columns:1fr;}
+}
+@media(max-width:768px){
+  /* stats: 루틴 위, 체중차트 아래로 */
   .stats-top-grid{grid-template-columns:1fr;}
+  .stats-top-grid > .stats-section:last-child{order:2;}
+  .stats-top-grid > .stats-section:first-child{order:1;}
 }
 @media(max-width:600px){
   .home-layout{grid-template-columns:1fr;}
@@ -929,9 +936,9 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 /* ── STATS TOP TWO-COLUMN ────────────────────────────────── */
 .stats-top-grid{
   display:grid;
-  grid-template-columns:1fr 240px;
+  grid-template-columns:1fr 340px;
   gap:14px;
-  align-items:stretch;   /* both columns same height */
+  align-items:stretch;
   margin-bottom:16px;
 }
 /* weight chart section fills height of routine section */
@@ -946,27 +953,27 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 .stat-grid-row{display:flex;align-items:center;gap:6px;margin-bottom:9px;}
 .stat-grid-header{margin-bottom:4px;}
 .stat-grid-label{
-  font-size:.72rem;color:var(--text2);
-  width:130px;min-width:130px;
+  font-size:.7rem;color:var(--text2);
+  width:90px;min-width:90px;
   overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0;
 }
-/* day grid — natural width (no flex:1) so count sits right next to boxes */
-.stat-day-grid{display:flex;gap:2px;}
+/* day grid — natural width so count sits right next to boxes */
+.stat-day-grid{display:flex;gap:1px;}
 .stat-day-box{
-  width:14px;height:14px;flex-shrink:0;
+  width:11px;height:11px;flex-shrink:0;
   border-radius:2px;
   border:1px solid var(--border);background:var(--bg3);
 }
 .stat-day-box.done{background:var(--accent);border-color:var(--accent);}
 /* day number header */
 .stat-day-num{
-  width:14px;flex-shrink:0;
-  text-align:center;font-size:.52rem;color:var(--text3);line-height:1;
+  width:11px;flex-shrink:0;
+  text-align:center;font-size:.44rem;color:var(--text3);line-height:1;
 }
 .stat-grid-count{
-  font-size:.72rem;color:var(--text3);
+  font-size:.7rem;color:var(--text3);
   white-space:nowrap;flex-shrink:0;
-  width:36px;text-align:right;
+  width:32px;text-align:right;
 }
 
 /* ── ROUTINE MODAL DRAG ──────────────────────────────────── */

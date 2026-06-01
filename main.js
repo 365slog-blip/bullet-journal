@@ -639,6 +639,7 @@ function renderDiaryWeekGrid() {
         </select>
       </div>
       <textarea class="diary-textarea" data-date="${ds}" placeholder="오늘 하루...">${content}</textarea>
+      <button class="diary-save-btn" data-date="${ds}">저장</button>
     </div>`;
   }
   grid.innerHTML = html;
@@ -659,10 +660,16 @@ function renderDiaryWeekGrid() {
     }
   };
 
-  grid.querySelectorAll('.diary-textarea').forEach(ta => {
-    let timer;
-    ta.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => save(ta.dataset.date), 1500); });
-  });
+  grid.querySelectorAll('.diary-save-btn').forEach(btn =>
+    btn.addEventListener('click', async () => {
+      const ds = btn.dataset.date;
+      btn.textContent = '저장 중...';
+      btn.disabled = true;
+      await save(ds);
+      btn.textContent = '저장됨 ✓';
+      setTimeout(() => { btn.textContent = '저장'; btn.disabled = false; }, 1500);
+    })
+  );
   grid.querySelectorAll('.diary-score-sel').forEach(sel =>
     sel.addEventListener('change', () => save(sel.dataset.date))
   );
