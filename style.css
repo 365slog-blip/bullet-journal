@@ -49,7 +49,8 @@ button{font-family:var(--font-b);cursor:pointer;border:none;background:none;colo
 input,textarea,select{font-family:var(--font-b);color:var(--text);background:transparent;border:none;outline:none;}
 img{max-width:100%;display:block;object-fit:cover;}
 ul,ol{list-style:none;}
-h1,h2,h3,h4{font-family:var(--font-h);}
+h1,h2,h3,h4{font-family:var(--font-b);}
+.brand-name,.nav-logo,.auth-brand h1{font-family:var(--font-h);}
 .hidden{display:none!important;}
 .flex-row{display:flex;align-items:center;}
 .gap8{gap:8px;}
@@ -168,6 +169,14 @@ h1,h2,h3,h4{font-family:var(--font-h);}
 .tab-pane{padding:20px;animation:fadeIn .2s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
 
+/* ── HOME DATE HERO ──────────────────────────────────────── */
+.home-date-hero{
+  display:flex;align-items:baseline;gap:12px;padding:10px 0 6px;
+  max-width:1300px;margin:0 auto;
+}
+.hero-date{font-size:2rem;font-weight:700;color:var(--accent);}
+.hero-dow{font-size:1rem;color:var(--text3);}
+
 /* ── HOME LAYOUT ────────────────────────────────────────── */
 .home-layout{display:flex;flex-direction:column;gap:14px;max-width:1300px;margin:0 auto;}
 .home-top{display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start;}
@@ -175,7 +184,7 @@ h1,h2,h3,h4{font-family:var(--font-h);}
   background:var(--card);border:1px solid var(--border);
   border-radius:var(--radius);padding:14px;position:sticky;top:14px;
 }
-.home-routine{display:flex;flex-direction:column;gap:10px;}
+.home-routine{display:flex;flex-direction:column;gap:10px;position:sticky;top:14px;}
 .home-bottom{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
 
 /* Routine 2-col grid */
@@ -316,6 +325,9 @@ h1,h2,h3,h4{font-family:var(--font-h);}
 }
 .inline-add-input::placeholder{color:var(--text3);}
 .inline-add-input:focus{border-bottom-color:var(--accent);}
+
+/* ── TAB CONTENT MAX-WIDTH ──────────────────────────────── */
+.tab-pane > *:not(.home-date-hero):not(.home-layout) { max-width:1300px; margin-left:auto; margin-right:auto; }
 
 /* ── DIARY TAB ──────────────────────────────────────────── */
 .diary-wrap{display:flex;flex-direction:column;gap:16px;max-width:1300px;margin:0 auto;}
@@ -746,9 +758,12 @@ h1,h2,h3,h4{font-family:var(--font-h);}
 }
 @media(max-width:900px){
   .home-top{grid-template-columns:1fr;}
-  .home-left{position:static;}
-  .home-bottom{grid-template-columns:1fr;}
+  .home-left,.home-routine{position:static;}
+  .home-bottom{grid-template-columns:1fr 1fr;}
   .diary-top{grid-template-columns:1fr;}
+}
+@media(max-width:600px){
+  .home-bottom{grid-template-columns:1fr;}
 }
 @media(max-width:768px){
   .hamburger{display:flex;}
@@ -774,10 +789,13 @@ h1,h2,h3,h4{font-family:var(--font-h);}
 /* Inline done state */
 .inline-item.done .inline-text{text-decoration:line-through;color:var(--text3);}
 
-/* Diary mini calendar */
-.diary-mini-cell.has-entry::after{
-  content:'';display:block;width:3px;height:3px;border-radius:50%;
-  background:var(--accent);margin:1px auto 0;
+/* Diary mini calendar — circle highlight on dates with entries */
+.diary-mini-cell.has-entry{
+  background:var(--aclt);border-radius:50%;
+  color:var(--accent);font-weight:700;
+}
+.diary-mini-cell.has-entry.in-sel-week{
+  background:var(--accent);color:#fff;
 }
 
 /* Diary meta selects (weather/mood) */
@@ -879,6 +897,32 @@ h1,h2,h3,h4{font-family:var(--font-h);}
   font-size:.85rem;color:var(--text);line-height:1.7;resize:vertical;
 }
 .brainstorm-textarea:focus{border-color:var(--accent);outline:none;}
+
+/* ── STATS DATE GRID ─────────────────────────────────────── */
+.stat-grid-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.stat-grid-label{font-size:.75rem;color:var(--text2);min-width:150px;max-width:150px;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.stat-day-grid{display:flex;flex-wrap:wrap;gap:3px;flex:1;}
+.stat-day-box{
+  width:18px;height:18px;border-radius:4px;
+  border:1px solid var(--border);background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.55rem;color:transparent;
+}
+.stat-day-box.done{background:var(--accent);border-color:var(--accent);color:#fff;}
+.stat-grid-count{font-size:.72rem;color:var(--text3);white-space:nowrap;}
+
+/* ── ROUTINE MODAL DRAG ──────────────────────────────────── */
+.drag-handle{
+  cursor:grab;color:var(--text3);font-size:1rem;padding:0 4px;
+  user-select:none;flex-shrink:0;
+}
+.routine-mgmt-item.dragging{opacity:.4;}
+.routine-mgmt-item.drag-over{border-top:2px solid var(--accent);}
+.routine-mgmt-type-badge{
+  font-size:.65rem;color:var(--text3);background:var(--bg3);
+  border-radius:8px;padding:1px 6px;white-space:nowrap;
+}
 
 /* Score input in diary */
 .diary-score-wrap{display:flex;align-items:center;gap:6px;margin-bottom:4px;}

@@ -117,6 +117,7 @@
 
     <!-- HOME TAB -->
     <div class="tab-pane active" id="tab-home">
+      <div class="home-date-hero" id="home-date-hero"></div>
       <div class="home-layout">
 
         <!-- Top row: Calendar + Routine -->
@@ -296,7 +297,15 @@
     </div>
     <div class="modal-body" id="routine-modal-body"></div>
     <div class="modal-foot">
-      <input class="form-input" id="routine-add-input" placeholder="루틴 이름 입력 후 Enter">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input class="form-input" id="routine-add-name" placeholder="루틴 이름 *">
+        <select class="form-input" id="routine-add-type">
+          <option value="checkbox">☑ 체크박스 (일반)</option>
+          <option value="weight">⚖ 몸무게 (숫자)</option>
+          <option value="meal">🍽 식사 (텍스트)</option>
+        </select>
+        <button class="btn-primary" id="routine-add-save">추가</button>
+      </div>
     </div>
   </div>
 </div>

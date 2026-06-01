@@ -116,7 +116,7 @@ async function loadData() {
   const todos    = parseRows(todoRows, ['날짜', '항목', '타입', '완료']);
   S.todoDeep     = todos.filter(t => t.타입 === 'deep');
   S.todoNon      = todos.filter(t => t.타입 === 'non');
-  S.routineSettings = parseRows(routineSetRows, ['루틴명', '순서']);
+  S.routineSettings = parseRows(routineSetRows, ['루틴명', '순서', '타입']);
   S.routineRecords  = parseRows(routineRecRows, ['날짜', '루틴명', '완료', '값']);
   // diary: ['날짜', '점수', '_x', '내용'] — keep 4 cols for back-compat (col3 unused)
   S.diaryEntries    = parseRows(diaryRows, ['날짜', '점수', '_x', '내용']);
@@ -141,14 +141,25 @@ async function loadData() {
 
 async function initDefaultRoutines() {
   for (let i = 0; i < CFG.DEFAULT_ROUTINES.length; i++) {
-    await sheetsAppend('루틴설정', [CFG.DEFAULT_ROUTINES[i], String(i + 1)]);
+    const name = CFG.DEFAULT_ROUTINES[i];
+    const type = name.includes('몸무게') ? 'weight' : name.includes('식단') ? 'meal' : 'checkbox';
+    await sheetsAppend('루틴설정', [name, String(i + 1), type]);
   }
   const rows = await sheetsRead('루틴설정');
-  S.routineSettings = parseRows(rows, ['루틴명', '순서']);
+  S.routineSettings = parseRows(rows, ['루틴명', '순서', '타입']);
 }
 
 // ── HOME ──────────────────────────────────────────────
+function renderTodayHero() {
+  const el = document.getElementById('home-date-hero');
+  if (!el) return;
+  const d   = new Date(S.selDate + 'T00:00:00');
+  const dow = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'][d.getDay()];
+  el.innerHTML = `<span class="hero-date">${d.getMonth()+1}월 ${d.getDate()}일</span><span class="hero-dow">${dow}</span>`;
+}
+
 function renderHomeRight() {
+  renderTodayHero();
   document.getElementById('sel-date-label').textContent = fmtKor(S.selDate);
   renderWeeklyGoals();
   renderWeeklyGoals({ listId: 'diary-weekly-list', addId: 'diary-weekly-add',
@@ -261,8 +272,9 @@ function renderRoutines() {
     const rec      = todayRecs.find(r => r.루틴명 === name);
     const done     = rec ? rec.완료 === 'TRUE' : false;
     const val      = rec ? (rec.값 || '') : '';
-    const isWeight = name.includes('몸무게');
-    const isDiet   = name.includes('식단');
+    const type     = rt.타입 || 'checkbox';
+    const isWeight = type === 'weight';
+    const isDiet   = type === 'meal';
 
     return `<div class="routine-item" data-name="${name}">
       <label class="routine-row" style="cursor:pointer">
@@ -271,8 +283,8 @@ function renderRoutines() {
       </label>
       ${(isWeight || isDiet) ? `
         <div class="routine-extra${done ? '' : ' hidden'}">
-          <input class="routine-val-input" data-name="${name}"
-            placeholder="${isWeight ? '몸무게(kg)' : '식단 내용'}" value="${val}" style="font-size:.75rem">
+          <input class="${isWeight ? 'routine-val-input' : 'routine-val-input'}" type="${isWeight ? 'number' : 'text'}" data-name="${name}"
+            placeholder="${isWeight ? '몸무게(kg)' : '식사 내용'}" value="${val}" style="font-size:.75rem">
         </div>` : ''}
     </div>`;
   }).join('');
@@ -321,19 +333,17 @@ function openRoutineModal() {
   modal.classList.remove('hidden');
   renderRoutineModal();
   document.getElementById('routine-modal-close').onclick = () => modal.classList.add('hidden');
-  let rtPending = false;
-  const inp = document.getElementById('routine-add-input');
-  inp.onkeydown = async e => {
-    if (e.key !== 'Enter' || rtPending) return;
-    const name = inp.value.trim();
-    if (!name) return;
-    rtPending = true;
-    inp.value = '';
+
+  document.getElementById('routine-add-save').onclick = async () => {
+    const nameEl = document.getElementById('routine-add-name');
+    const typeEl = document.getElementById('routine-add-type');
+    const name = nameEl.value.trim();
+    if (!name) { showToast('루틴 이름을 입력하세요', true); return; }
+    nameEl.value = '';
     const maxOrd = S.routineSettings.reduce((mx, r) => Math.max(mx, +r.순서), 0);
-    await sheetsAppend('루틴설정', [name, String(maxOrd + 1)]);
+    await sheetsAppend('루틴설정', [name, String(maxOrd + 1), typeEl.value]);
     const rows = await sheetsRead('루틴설정');
-    S.routineSettings = parseRows(rows, ['루틴명', '순서']);
-    rtPending = false;
+    S.routineSettings = parseRows(rows, ['루틴명', '순서', '타입']);
     renderRoutineModal();
     renderRoutines();
     showToast('루틴 추가됨');
@@ -343,12 +353,50 @@ function openRoutineModal() {
 function renderRoutineModal() {
   const body   = document.getElementById('routine-modal-body');
   const sorted = [...S.routineSettings].sort((a, b) => +a.순서 - +b.순서);
+  const typeLabel = { checkbox: '체크', weight: '몸무게', meal: '식사' };
+
+  if (!sorted.length) {
+    body.innerHTML = '<p style="color:var(--text3);font-size:.82rem;padding:8px 0">루틴 없음</p>';
+    return;
+  }
+
   body.innerHTML = sorted.map(rt => `
-    <div class="routine-mgmt-item">
+    <div class="routine-mgmt-item" draggable="true" data-row="${rt._row}">
+      <span class="drag-handle">⠿</span>
       <span class="routine-mgmt-name">${rt.루틴명}</span>
+      <span class="routine-mgmt-type-badge">${typeLabel[rt.타입||'checkbox']||'체크'}</span>
       <button class="routine-mgmt-del" data-row="${rt._row}">✕</button>
     </div>
-  `).join('') || '<p style="color:var(--text3);font-size:.82rem;padding:8px 0">루틴 없음</p>';
+  `).join('');
+
+  // drag reorder
+  let dragSrc = null;
+  body.querySelectorAll('.routine-mgmt-item').forEach(item => {
+    item.addEventListener('dragstart', () => { dragSrc = item; item.classList.add('dragging'); });
+    item.addEventListener('dragend',   () => { item.classList.remove('dragging'); body.querySelectorAll('.routine-mgmt-item').forEach(i => i.classList.remove('drag-over')); });
+    item.addEventListener('dragover',  e => { e.preventDefault(); if (item !== dragSrc) item.classList.add('drag-over'); });
+    item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+    item.addEventListener('drop', async e => {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === item) return;
+      item.classList.remove('drag-over');
+      // reorder in sorted array
+      const srcRow = +dragSrc.dataset.row;
+      const tgtRow = +item.dataset.row;
+      const srcIdx = sorted.findIndex(r => r._row === srcRow);
+      const tgtIdx = sorted.findIndex(r => r._row === tgtRow);
+      const [moved] = sorted.splice(srcIdx, 1);
+      sorted.splice(tgtIdx, 0, moved);
+      // update 순서 for all
+      for (let i = 0; i < sorted.length; i++) {
+        sorted[i].순서 = String(i + 1);
+        await sheetsUpdate('루틴설정', sorted[i]._row, [sorted[i].루틴명, sorted[i].순서, sorted[i].타입||'checkbox']);
+      }
+      S.routineSettings = sorted;
+      renderRoutineModal();
+      renderRoutines();
+    });
+  });
 
   body.querySelectorAll('.routine-mgmt-del').forEach(b =>
     b.addEventListener('click', async () => {
@@ -356,7 +404,7 @@ function renderRoutineModal() {
       confirmAction('루틴을 삭제하시겠습니까?', async () => {
         await sheetsDelete('루틴설정', row);
         const rows = await sheetsRead('루틴설정');
-        S.routineSettings = parseRows(rows, ['루틴명', '순서']);
+        S.routineSettings = parseRows(rows, ['루틴명', '순서', '타입']);
         renderRoutineModal();
         renderRoutines();
         showToast('삭제됨');
@@ -1394,42 +1442,40 @@ function renderStats() {
   const ms   = `${y}-${String(m+1).padStart(2,'0')}`;
   const dim  = new Date(y, m+1, 0).getDate();
   const recs = S.routineRecords.filter(r => r.날짜.startsWith(ms));
-  const wPts = recs.filter(r => r.루틴명.includes('몸무게') && r.값 && parseFloat(r.값));
-  const deep = S.todoDeep.filter(t => t.날짜.startsWith(ms));
-  const non  = S.todoNon.filter(t => t.날짜.startsWith(ms));
+  const wPts = recs.filter(r => (r.루틴명.includes('몸무게')||(S.routineSettings.find(s=>s.루틴명===r.루틴명)?.타입==='weight')) && r.값 && parseFloat(r.값));
   const writ = S.writings.filter(w => w.날짜.startsWith(ms));
   const duo  = S.duolingo.filter(d => d.날짜.startsWith(ms));
   const sorted = [...S.routineSettings].sort((a, b) => +a.순서 - +b.순서);
 
+  // Build date array for the month
+  const days = Array.from({length: dim}, (_, i) => {
+    const d = i + 1;
+    return `${ms}-${String(d).padStart(2,'0')}`;
+  });
+
   document.getElementById('stats-body').innerHTML = `
     <div class="stats-section">
-      <div class="stats-section-title">루틴 달성률</div>
-      ${sorted.map(rt => {
-        const cnt = recs.filter(r => r.루틴명===rt.루틴명 && r.완료==='TRUE').length;
-        const pct = Math.round(cnt/dim*100);
-        const col = pct>=80?'var(--success)':pct>=50?'var(--warn)':'var(--danger)';
-        return `<div class="stat-bar-row">
-          <span class="stat-bar-label">${rt.루틴명}</span>
-          <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%;background:${col}"></div></div>
-          <span class="stat-bar-count">${pct}%</span>
-        </div>`;
-      }).join('') || '<p style="color:var(--text3);font-size:.82rem">루틴 없음</p>'}
+      <div class="stats-section-title">루틴 달성 현황</div>
+      <div style="overflow-x:auto">
+        <div style="display:flex;gap:3px;margin-bottom:6px;padding-left:160px">
+          ${days.map((_, i) => `<div style="width:18px;text-align:center;font-size:.6rem;color:var(--text3);flex-shrink:0">${i+1}</div>`).join('')}
+        </div>
+        ${sorted.map(rt => {
+          const doneDays = new Set(recs.filter(r => r.루틴명===rt.루틴명 && r.완료==='TRUE').map(r => r.날짜));
+          const cnt = doneDays.size;
+          return `<div class="stat-grid-row">
+            <span class="stat-grid-label">${rt.루틴명}</span>
+            <div class="stat-day-grid">
+              ${days.map(ds => `<div class="stat-day-box${doneDays.has(ds)?' done':''}" title="${ds.split('-')[2]}일"></div>`).join('')}
+            </div>
+            <span class="stat-grid-count">${cnt}/${dim}</span>
+          </div>`;
+        }).join('') || '<p style="color:var(--text3);font-size:.82rem">루틴 없음</p>'}
+      </div>
     </div>
     <div class="stats-section">
       <div class="stats-section-title">체중 변화</div>
       <div id="weight-chart-wrap"></div>
-    </div>
-    <div class="stats-section">
-      <div class="stats-section-title">할 일 완료</div>
-      ${[['Deep Work', deep], ['Non-Deep', non]].map(([lbl, arr]) => {
-        const d = arr.filter(t => t.완료==='TRUE').length;
-        const p = arr.length ? Math.round(d/arr.length*100) : 0;
-        return `<div class="stat-bar-row">
-          <span class="stat-bar-label">${lbl}</span>
-          <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${p}%"></div></div>
-          <span class="stat-bar-count">${d}/${arr.length}</span>
-        </div>`;
-      }).join('')}
     </div>
     <div class="stats-section">
       <div class="stats-section-title">이번 달 기록</div>
