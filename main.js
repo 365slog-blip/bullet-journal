@@ -160,7 +160,6 @@ function renderTodayHero() {
 
 function renderHomeRight() {
   renderTodayHero();
-  document.getElementById('sel-date-label').textContent = fmtKor(S.selDate);
   renderWeeklyGoals();
   renderWeeklyGoals({ listId: 'diary-weekly-list', addId: 'diary-weekly-add',
     labelId: 'diary-week-range-label', sun: S.dWeekSun || weekSunday(S.selDate) });
@@ -246,12 +245,13 @@ function renderCalEventPanel() {
 
   let evtPending = false;
   document.getElementById('event-input').addEventListener('keydown', async e => {
-    if (e.key !== 'Enter' || evtPending) return;
+    if (e.key !== 'Enter' || e.isComposing || evtPending) return;
     const val = e.target.value.trim();
     if (!val) return;
     evtPending = true;
     const color = document.getElementById('event-color').value;
     e.target.value = '';
+    setTimeout(() => { e.target.value = ''; }, 0);
     await sheetsAppend('월간스케줄', [S.selDate, val, color]);
     const rows = await sheetsRead('월간스케줄');
     S.calEvents = parseRows(rows, ['날짜', '내용', '색상']);
@@ -469,11 +469,12 @@ function renderWeeklyGoals(opts = {}) {
   if (!inp) return;
   let wgPending = false;
   inp.onkeydown = async e => {
-    if (e.key !== 'Enter' || wgPending) return;
+    if (e.key !== 'Enter' || e.isComposing || wgPending) return;
     const val = inp.value.trim();
     if (!val) return;
     wgPending = true;
     inp.value = '';
+    setTimeout(() => { inp.value = ''; }, 0);
     await sheetsAppend('주간계획', [sun, val, 'FALSE']);
     const rows = await sheetsRead('주간계획');
     S.weeklyGoals = parseRows(rows, ['주시작일', '항목', '완료']);
@@ -539,11 +540,12 @@ function renderTodos(type) {
   const inp = document.getElementById(addId);
   let tdPending = false;
   inp.onkeydown = async e => {
-    if (e.key !== 'Enter' || tdPending) return;
+    if (e.key !== 'Enter' || e.isComposing || tdPending) return;
     const val = inp.value.trim();
     if (!val) return;
     tdPending = true;
     inp.value = '';
+    setTimeout(() => { inp.value = ''; }, 0);
     await sheetsAppend('투두', [S.selDate, val, type, 'FALSE']);
     const rows = await sheetsRead('투두');
     const all  = parseRows(rows, ['날짜', '항목', '타입', '완료']);
@@ -621,14 +623,15 @@ function renderDiaryWeekGrid() {
     const content = ent.내용  || '';
     const dateLabel = `${d.getMonth()+1}/${d.getDate()} (${dowLabels[i]})`;
 
+    const scoreEmojis = {'':'- 점수 -','1':'😢 힘듦','2':'😕 별로','3':'😐 보통','4':'🙂 좋음','5':'😄 최고'};
     html += `<div class="diary-day-col${ds===today?' today':''}" data-date="${ds}">
       <div class="diary-day-head" style="margin-bottom:8px">
         <span style="font-size:.85rem;font-weight:600;color:var(--accent)">${dateLabel}</span>
       </div>
       <div class="diary-score-wrap">
-        <span style="font-size:.72rem;color:var(--text3)">오늘의 점수</span>
-        <input type="number" class="diary-score-inp" data-date="${ds}" min="1" max="10" placeholder="점수" value="${score}">
-        <span style="font-size:.72rem;color:var(--text3)">/10</span>
+        <select class="diary-score-sel" data-date="${ds}">
+          ${Object.entries(scoreEmojis).map(([v,l])=>`<option value="${v}"${score===v?' selected':''}>${l}</option>`).join('')}
+        </select>
       </div>
       <textarea class="diary-textarea" data-date="${ds}" placeholder="오늘 하루...">${content}</textarea>
     </div>`;
@@ -637,7 +640,7 @@ function renderDiaryWeekGrid() {
 
   const save = async ds => {
     const col   = grid.querySelector(`.diary-day-col[data-date="${ds}"]`);
-    const score = col.querySelector('.diary-score-inp').value;
+    const score = (col.querySelector('.diary-score-sel') || col.querySelector('.diary-score-inp') || {value:''}).value;
     const text  = col.querySelector('.diary-textarea').value;
     const entry = S.diaryEntries.find(e => e.날짜 === ds);
     if (entry) {
@@ -655,8 +658,8 @@ function renderDiaryWeekGrid() {
     let timer;
     ta.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => save(ta.dataset.date), 1500); });
   });
-  grid.querySelectorAll('.diary-score-inp').forEach(inp =>
-    inp.addEventListener('change', () => save(inp.dataset.date))
+  grid.querySelectorAll('.diary-score-sel').forEach(sel =>
+    sel.addEventListener('change', () => save(sel.dataset.date))
   );
 }
 
@@ -710,7 +713,7 @@ function renderProjectDetail() {
 
   document.getElementById('project-detail-body').innerHTML = `
     <div style="border-left:5px solid ${proj.색상||'var(--accent)'};padding-left:14px;margin-bottom:18px">
-      <h2 style="font-family:var(--font-h);font-size:1.3rem;color:var(--accent)">${proj.제목}</h2>
+      <h2 style="font-family:var(--font-b);font-size:1.3rem;color:var(--accent)">${proj.제목}</h2>
       ${proj.설명 ? `<p style="font-size:.85rem;color:var(--text2);margin-top:4px">${proj.설명}</p>` : ''}
       <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
         ${proj.시작일 ? `<span style="font-size:.75rem;color:var(--text3)">${proj.시작일}${proj.종료일?' ~ '+proj.종료일:''}</span>` : ''}
@@ -834,7 +837,7 @@ function openProjectForm(proj) {
   el.innerHTML = `
     <div class="proj-form-modal">
       <div class="proj-form-head">
-        <h3 style="font-family:var(--font-h)">${isEdit ? '프로젝트 수정' : '새 프로젝트'}</h3>
+        <h3 style="font-family:var(--font-b)">${isEdit ? '프로젝트 수정' : '새 프로젝트'}</h3>
         <button class="icon-btn" id="pff-close">✕</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:12px;padding:16px 18px">
@@ -923,9 +926,15 @@ function renderWords(body) {
   if (S.flashMode) { renderFlashCard(body); return; }
 
   body.innerHTML = `
-    <div class="word-toolbar">
-      <input style="padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;color:var(--text);width:150px" id="word-search" placeholder="단어/뜻 검색">
-      <div style="display:flex;gap:8px">
+    <div class="word-toolbar" style="flex-wrap:wrap;gap:8px">
+      <input style="padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;color:var(--text);width:140px" id="word-search" placeholder="단어/뜻 검색">
+      <div class="filter-chips" id="word-tag-chips">
+        <button class="filter-chip${!S.wordFilter||S.wordFilter==='all'?' active':''}" data-tag="all">전체</button>
+        <button class="filter-chip${S.wordFilter==='알아요'?' active':''}" data-tag="알아요">알아요</button>
+        <button class="filter-chip${S.wordFilter==='헷갈려요'?' active':''}" data-tag="헷갈려요">헷갈려요</button>
+        <button class="filter-chip${S.wordFilter==='몰라요'?' active':''}" data-tag="몰라요">몰라요</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-left:auto">
         <button class="btn-outline-sm" id="flash-btn">플래시카드</button>
         <button class="btn-primary" style="font-size:.82rem;padding:7px 14px" id="add-word-btn">+ 단어</button>
       </div>
@@ -943,7 +952,18 @@ function renderWords(body) {
     S.flashMode = true; S.flashIdx = 0; S.flashFlipped = false; renderLangBody();
   };
   document.getElementById('add-word-btn').onclick = () => showWordForm(body, null);
-  document.getElementById('word-search').addEventListener('input', e => renderWordTable(body, e.target.value));
+  const searchEl = document.getElementById('word-search');
+  searchEl.addEventListener('input', e => renderWordTable(body, e.target.value));
+
+  document.getElementById('word-tag-chips').querySelectorAll('.filter-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      S.wordFilter = btn.dataset.tag;
+      document.querySelectorAll('#word-tag-chips .filter-chip').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderWordTable(body, searchEl.value);
+    });
+  });
+
   renderWordTable(body, '');
 }
 
@@ -951,6 +971,9 @@ function renderWordTable(body, search) {
   const tbody = document.getElementById('word-tbody');
   if (!tbody) return;
   let list = getWordsForLang();
+  if (S.wordFilter && S.wordFilter !== 'all') {
+    list = list.filter(w => w.태그 === S.wordFilter);
+  }
   if (search) {
     const q = search.toLowerCase();
     list = list.filter(w => w.단어.toLowerCase().includes(q) || w.뜻.includes(q));
@@ -1163,18 +1186,120 @@ function renderGrammar(body) {
 function showGrammarPopup(item, idx, key, items, body) {
   const el = document.createElement('div');
   el.className = 'grammar-popup-overlay';
-  el.innerHTML = `
-    <div class="grammar-popup-box">
+  const renderView = () => {
+    el.querySelector('.grammar-popup-box').innerHTML = `
       <div class="grammar-popup-head">
-        <h3 style="font-family:var(--font-h)">${item.title}</h3>
+        <h3>${item.title}</h3>
         <button class="icon-btn" id="gp-close">✕</button>
       </div>
-      <div class="grammar-popup-body">${item.content || '내용 없음'}</div>
-    </div>
-  `;
+      <div class="grammar-popup-body" style="white-space:pre-wrap">${item.content || '내용 없음'}</div>
+      <div style="display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border);justify-content:flex-end">
+        <button class="btn-outline-sm" id="gp-edit">수정</button>
+        <button class="btn-danger-sm" id="gp-delete">삭제</button>
+      </div>
+    `;
+    el.querySelector('#gp-close').onclick = () => el.remove();
+    el.querySelector('#gp-delete').onclick = () =>
+      confirmAction('삭제하시겠습니까?', () => {
+        items.splice(idx, 1);
+        localStorage.setItem(key, JSON.stringify(items));
+        el.remove();
+        renderGrammar(body);
+        showToast('삭제됨');
+      });
+    el.querySelector('#gp-edit').onclick = () => {
+      el.querySelector('.grammar-popup-box').innerHTML = `
+        <div class="grammar-popup-head">
+          <h3>문법 노트 수정</h3>
+          <button class="icon-btn" id="gp-close2">✕</button>
+        </div>
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <input class="form-input" id="gp-et" value="${item.title.replace(/"/g,'&quot;')}" placeholder="제목">
+          <textarea class="form-input" id="gp-ec" rows="6" style="resize:vertical">${item.content||''}</textarea>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn-outline" id="gp-ec-cancel">취소</button>
+            <button class="btn-primary" id="gp-ec-save">저장</button>
+          </div>
+        </div>
+      `;
+      el.querySelector('#gp-close2').onclick = () => el.remove();
+      el.querySelector('#gp-ec-cancel').onclick = renderView;
+      el.querySelector('#gp-ec-save').onclick = () => {
+        items[idx].title   = el.querySelector('#gp-et').value.trim() || item.title;
+        items[idx].content = el.querySelector('#gp-ec').value;
+        localStorage.setItem(key, JSON.stringify(items));
+        el.remove();
+        renderGrammar(body);
+        showToast('수정됨');
+      };
+    };
+  };
+  el.innerHTML = '<div class="grammar-popup-box"></div>';
   document.body.appendChild(el);
-  el.querySelector('#gp-close').onclick = () => el.remove();
   el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+  renderView();
+}
+
+function showPhrasePopup(item, idx, key, items, body) {
+  const el = document.createElement('div');
+  el.className = 'grammar-popup-overlay';
+  const renderView = () => {
+    el.querySelector('.grammar-popup-box').innerHTML = `
+      <div class="grammar-popup-head">
+        <h3>${item.expr}</h3>
+        <button class="icon-btn" id="pp-close">✕</button>
+      </div>
+      <div style="padding:16px 18px">
+        ${item.mean ? `<p style="font-size:.88rem;color:var(--text2);margin-bottom:8px">뜻: ${item.mean}</p>` : ''}
+        ${item.ex ? `<p style="font-size:.82rem;color:var(--text3);line-height:1.6;white-space:pre-wrap">${item.ex}</p>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border);justify-content:flex-end">
+        <button class="btn-outline-sm" id="pp-edit">수정</button>
+        <button class="btn-danger-sm" id="pp-delete">삭제</button>
+      </div>
+    `;
+    el.querySelector('#pp-close').onclick = () => el.remove();
+    el.querySelector('#pp-delete').onclick = () =>
+      confirmAction('삭제하시겠습니까?', () => {
+        items.splice(idx, 1);
+        localStorage.setItem(key, JSON.stringify(items));
+        el.remove();
+        renderPhrases(body);
+        showToast('삭제됨');
+      });
+    el.querySelector('#pp-edit').onclick = () => {
+      el.querySelector('.grammar-popup-box').innerHTML = `
+        <div class="grammar-popup-head">
+          <h3>회화표현 수정</h3>
+          <button class="icon-btn" id="pp-close2">✕</button>
+        </div>
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <input class="form-input" id="pp-expr" value="${item.expr.replace(/"/g,'&quot;')}" placeholder="표현 *">
+          <input class="form-input" id="pp-mean" value="${(item.mean||'').replace(/"/g,'&quot;')}" placeholder="뜻">
+          <textarea class="form-input" id="pp-ex" rows="3" style="resize:vertical">${item.ex||''}</textarea>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn-outline" id="pp-ec-cancel">취소</button>
+            <button class="btn-primary" id="pp-ec-save">저장</button>
+          </div>
+        </div>
+      `;
+      el.querySelector('#pp-close2').onclick = () => el.remove();
+      el.querySelector('#pp-ec-cancel').onclick = renderView;
+      el.querySelector('#pp-ec-save').onclick = () => {
+        items[idx].expr = el.querySelector('#pp-expr').value.trim() || item.expr;
+        items[idx].mean = el.querySelector('#pp-mean').value;
+        items[idx].ex   = el.querySelector('#pp-ex').value;
+        localStorage.setItem(key, JSON.stringify(items));
+        el.remove();
+        renderPhrases(body);
+        showToast('수정됨');
+      };
+    };
+  };
+  el.innerHTML = '<div class="grammar-popup-box"></div>';
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+  renderView();
 }
 
 function renderPhrases(body) {
@@ -1191,21 +1316,19 @@ function renderPhrases(body) {
   `;
   const cards = document.getElementById('phrase-cards');
   cards.innerHTML = items.map((it, i) => `
-    <div class="note-card">
+    <div class="note-card" data-i="${i}" style="cursor:pointer">
       <div class="note-card-top">${it.expr}</div>
       <div class="note-card-sub">${it.mean}</div>
       ${it.ex ? `<div class="note-card-body">${it.ex}</div>` : ''}
-      <button class="word-del-btn" style="margin-top:8px;font-size:.72rem" data-i="${i}">삭제</button>
     </div>
   `).join('') || '<p style="color:var(--text3);font-size:.85rem;grid-column:1/-1">표현이 없습니다.</p>';
 
-  cards.querySelectorAll('.word-del-btn').forEach(b =>
-    b.addEventListener('click', () => {
-      items.splice(+b.dataset.i, 1);
-      localStorage.setItem(key, JSON.stringify(items));
-      renderPhrases(body);
-    })
-  );
+  cards.querySelectorAll('.note-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const i = +card.dataset.i;
+      showPhrasePopup(items[i], i, key, items, body);
+    });
+  });
   document.getElementById('ph-save').onclick = () => {
     const expr = document.getElementById('ph-expr').value.trim();
     if (!expr) { showToast('표현을 입력하세요', true); return; }
@@ -1415,7 +1538,7 @@ function openWritingDetail(item) {
       ${item.이미지 ? `<img src="${item.이미지}" class="detail-cover-img">` : ''}
       <div>
         <span class="detail-status">${item._cat}</span>
-        <h2 style="font-family:var(--font-h);font-size:1.4rem;margin:8px 0 4px">${item.제목}</h2>
+        <h2 style="font-family:var(--font-b);font-size:1.4rem;margin:8px 0 4px">${item.제목}</h2>
         ${item.서브 ? `<p class="detail-meta-row">${item.서브}</p>` : ''}
         <div class="detail-stars">${starsHTML(item.별점)} <span style="font-size:.85rem;color:var(--text3)">${item.별점}</span></div>
         <p class="detail-meta-row">${item.날짜}</p>
@@ -1480,16 +1603,24 @@ function renderStats() {
     <div class="stats-section">
       <div class="stats-section-title">이번 달 기록</div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;text-align:center">
-        ${[['독서',writ.filter(w=>w._cat==='독서').length,'📚'],
-           ['영화',writ.filter(w=>w._cat==='영화').length,'🎬'],
-           ['드라마',writ.filter(w=>w._cat==='드라마').length,'📺'],
-           ['웹툰',writ.filter(w=>w._cat==='웹툰웹소설').length,'📱'],
-           ['듀오링고',duo.length,'🦜']].map(([lbl,cnt,ico])=>
-          `<div style="background:var(--bg2);border-radius:var(--radius);padding:12px 6px">
-            <div style="font-size:1.4rem">${ico}</div>
-            <div style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:4px 0">${cnt}</div>
-            <div style="font-size:.7rem;color:var(--text3)">${lbl}</div>
-          </div>`).join('')}
+        ${(() => {
+          const diaryCount   = S.diaryEntries.filter(e => e.날짜.startsWith(ms) && e.내용).length;
+          const projDone     = S.projects.filter(p => p.상태 === '완료').length;
+          const writingCount = writ.filter(w => w._cat==='영화'||w._cat==='드라마'||w._cat==='웹툰웹소설').length;
+          return [
+            ['독서',   writ.filter(w=>w._cat==='독서').length, '📚'],
+            ['글쓰기', writingCount,                           '🎬'],
+            ['일기',   diaryCount,                            '📓'],
+            ['프로젝트완료', projDone,                         '🗂'],
+            ['듀오링고', duo.length,                           '🦜'],
+          ].map(([lbl,cnt,ico])=>
+            `<div style="background:var(--bg2);border-radius:var(--radius);padding:12px 6px">
+              <div style="font-size:1.4rem">${ico}</div>
+              <div style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:4px 0">${cnt}</div>
+              <div style="font-size:.7rem;color:var(--text3)">${lbl}</div>
+            </div>`
+          ).join('');
+        })()}
       </div>
     </div>
   `;
