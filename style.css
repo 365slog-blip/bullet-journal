@@ -177,15 +177,28 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 .hero-date{font-size:2rem;font-weight:700;color:var(--accent);}
 .hero-dow{font-size:1rem;color:var(--text3);}
 
-/* ── HOME LAYOUT ────────────────────────────────────────── */
-.home-layout{display:flex;flex-direction:column;gap:14px;max-width:1300px;margin:0 auto;}
-.home-top{display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start;}
-.home-left{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:var(--radius);padding:14px;position:sticky;top:14px;
+/* ── HOME LAYOUT — 3-column shared grid ─────────────────── */
+.home-layout{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:14px;
+  max-width:1300px;margin:0 auto;
 }
-.home-routine{display:flex;flex-direction:column;gap:10px;position:sticky;top:14px;}
-.home-bottom{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+/* dissolve wrappers — children become direct grid items */
+.home-top,.home-bottom{display:contents;}
+
+.home-left{
+  grid-column:1;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px;
+  position:sticky;top:14px;align-self:start;
+}
+.home-routine{
+  grid-column:2 / 4;           /* spans columns 2–3 */
+  display:flex;flex-direction:column;gap:10px;
+  position:sticky;top:14px;align-self:start;
+}
+/* three h-sections inside .home-bottom auto-place into cols 1, 2, 3 */
 
 /* Routine 2-col grid */
 #routine-list{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;}
@@ -758,19 +771,15 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 .empty-icon{font-size:2.5rem;margin-bottom:10px;}
 
 /* ── RESPONSIVE ─────────────────────────────────────────── */
-@media(max-width:1060px){
-  .home-top{grid-template-columns:290px 1fr;}
-  .home-bottom{grid-template-columns:repeat(3,1fr);}
-}
 @media(max-width:900px){
-  .home-top{grid-template-columns:1fr;}
+  .home-layout{grid-template-columns:1fr;}
+  .home-routine{grid-column:1;}
   .home-left,.home-routine{position:static;}
-  .home-bottom{grid-template-columns:1fr 1fr;}
   .diary-top{grid-template-columns:1fr;}
   .stats-top-grid{grid-template-columns:1fr;}
 }
 @media(max-width:600px){
-  .home-bottom{grid-template-columns:1fr;}
+  .home-layout{grid-template-columns:1fr;}
 }
 @media(max-width:768px){
   .hamburger{display:flex;}
