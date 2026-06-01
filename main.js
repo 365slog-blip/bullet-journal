@@ -1584,6 +1584,13 @@ function renderStats() {
     <div class="stats-top-grid">
       <div class="stats-section" style="margin-bottom:0">
         <div class="stats-section-title">루틴 달성 현황</div>
+        <div class="stat-grid-row stat-grid-header">
+          <span class="stat-grid-label"></span>
+          <div class="stat-day-grid">${days.map((_, i) =>
+            `<div class="stat-day-num">${i+1}</div>`
+          ).join('')}</div>
+          <span class="stat-grid-count"></span>
+        </div>
         ${sorted.map(rt => {
           const doneDays = new Set(recs.filter(r => r.루틴명===rt.루틴명 && r.완료==='TRUE').map(r => r.날짜));
           const cnt = doneDays.size;
@@ -1626,7 +1633,7 @@ function renderStats() {
   } else {
     const pts = wPts.map(r => ({ day: +r.날짜.split('-')[2], val: parseFloat(r.값) }))
       .sort((a, b) => a.day - b.day);
-    const W = 300, H = 100, P = 24;
+    const W = 300, H = 220, P = 28;
     const minV = Math.min(...pts.map(p=>p.val)) - 0.5;
     const maxV = Math.max(...pts.map(p=>p.val)) + 0.5;
     const tx = d => P + (d-1) / (dim-1||1) * (W - P*2);
