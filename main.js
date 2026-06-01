@@ -760,9 +760,10 @@ function renderProjTasks(proj, tasks) {
     <div class="proj-task-card${t.완료==='TRUE'?' done-card':''}">
       <div class="proj-task-card-top">
         <input type="checkbox" class="inline-cb" data-row="${t._row}" ${t.완료==='TRUE'?'checked':''}>
-        <span class="proj-task-title${t.완료==='TRUE'?' done':''}">${t.제목||t.내용||'(제목 없음)'}</span>
+        <span class="proj-task-title${t.완료==='TRUE'?' done':''}">${t.제목||'(제목 없음)'}</span>
         ${t.데드라인 ? `<span class="proj-task-deadline">${t.데드라인}</span>` : ''}
-        <button class="inline-del" data-row="${t._row}">✕</button>
+        <button class="task-edit-btn" data-row="${t._row}" title="수정">✎</button>
+        <button class="inline-del" data-row="${t._row}" title="삭제">✕</button>
       </div>
       ${(t.내용||t.비고) ? `<div class="proj-task-body">
         ${t.내용 ? `<p class="proj-task-content">${t.내용}</p>` : ''}
@@ -783,15 +784,70 @@ function renderProjTasks(proj, tasks) {
     })
   );
 
+  list.querySelectorAll('.task-edit-btn').forEach(b =>
+    b.addEventListener('click', () => {
+      const task = S.projTasks.find(t => t._row === +b.dataset.row);
+      if (task) openTaskEditOverlay(task);
+    })
+  );
+
   list.querySelectorAll('.inline-del').forEach(b =>
     b.addEventListener('click', async () => {
       const row = +b.dataset.row;
-      await sheetsDelete('프로젝트태스크', row);
-      S.projTasks = S.projTasks.filter(t => t._row !== row);
-      S.projTasks.forEach(t => { if (t._row > row) t._row--; });
-      renderProjectDetail();
+      confirmAction('태스크를 삭제하시겠습니까?', async () => {
+        await sheetsDelete('프로젝트태스크', row);
+        S.projTasks = S.projTasks.filter(t => t._row !== row);
+        S.projTasks.forEach(t => { if (t._row > row) t._row--; });
+        renderProjectDetail();
+        showToast('삭제됨');
+      });
     })
   );
+}
+
+function openTaskEditOverlay(task) {
+  const el = document.createElement('div');
+  el.className = 'proj-form-overlay';
+  el.innerHTML = `
+    <div class="proj-form-modal">
+      <div class="proj-form-head">
+        <h3 style="font-size:.95rem;font-weight:600">태스크 수정</h3>
+        <button class="icon-btn" id="te-close">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:16px 18px">
+        <div><label style="font-size:.72rem;color:var(--text3)">제목 *</label>
+          <input class="form-input" id="te-title" value="${(task.제목||'').replace(/"/g,'&quot;')}"></div>
+        <div><label style="font-size:.72rem;color:var(--text3)">내용</label>
+          <textarea class="form-input" id="te-content" rows="3" style="resize:vertical">${task.내용||''}</textarea></div>
+        <div><label style="font-size:.72rem;color:var(--text3)">데드라인</label>
+          <input type="date" class="form-input" id="te-deadline" value="${task.데드라인||''}"></div>
+        <div><label style="font-size:.72rem;color:var(--text3)">비고</label>
+          <input class="form-input" id="te-note" value="${(task.비고||'').replace(/"/g,'&quot;')}"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+          <button class="btn-outline" id="te-cancel">취소</button>
+          <button class="btn-primary" id="te-save">저장</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(el);
+  el.querySelector('#te-close').onclick  = () => el.remove();
+  el.querySelector('#te-cancel').onclick = () => el.remove();
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+
+  el.querySelector('#te-save').onclick = async () => {
+    const title = el.querySelector('#te-title').value.trim();
+    if (!title) { showToast('제목을 입력하세요', true); return; }
+    task.제목     = title;
+    task.내용     = el.querySelector('#te-content').value;
+    task.데드라인 = el.querySelector('#te-deadline').value;
+    task.비고     = el.querySelector('#te-note').value;
+    await sheetsUpdate('프로젝트태스크', task._row,
+      [task.프로젝트ID, task.제목, task.내용, task.완료, task.데드라인, task.비고]);
+    el.remove();
+    renderProjectDetail();
+    showToast('수정됨');
+  };
 }
 
 function openTaskForm(proj) {
@@ -1151,7 +1207,6 @@ function renderGrammar(body) {
     <div class="note-card" data-i="${i}" style="cursor:pointer">
       <div class="note-card-top">${it.title}</div>
       <div class="note-card-body">${it.content}</div>
-      <button class="word-del-btn" style="margin-top:8px;font-size:.72rem" data-i="${i}">삭제</button>
     </div>
   `).join('') || '<p style="color:var(--text3);font-size:.85rem;grid-column:1/-1">문법 노트가 없습니다.</p>';
 

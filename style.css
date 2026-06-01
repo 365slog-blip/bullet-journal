@@ -902,6 +902,14 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 .proj-task-content{font-size:.8rem;color:var(--text2);line-height:1.5;}
 .proj-task-note{font-size:.75rem;color:var(--text3);font-style:italic;}
 
+/* Task edit button */
+.task-edit-btn{
+  color:var(--text3);font-size:.78rem;opacity:0;transition:opacity .15s;
+  padding:2px 5px;border-radius:4px;flex-shrink:0;
+}
+.proj-task-card:hover .task-edit-btn{opacity:1;}
+.task-edit-btn:hover{color:var(--accent);background:var(--bg2);}
+
 /* Task form */
 .task-form{
   background:var(--card);border:1px solid var(--accent);
