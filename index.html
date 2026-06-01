@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" id="theme-color-meta" content="#8b4513">
+  <meta name="theme-color" content="#5c3d2e">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Bullet">
   <link rel="manifest" href="manifest.json">
   <title>Bullet Journal</title>
@@ -16,18 +15,17 @@
 </head>
 <body>
 
-<!-- ───── GOOGLE LOGIN SCREEN ───── -->
-<div id="google-screen" class="pin-screen">
-  <div class="pin-wrap">
-    <div class="pin-header">
-      <div class="pin-logo">✦</div>
-      <h1 class="pin-title">Bullet</h1>
-      <p class="pin-sub">나만의 불렛저널</p>
+<!-- ══ GOOGLE LOGIN SCREEN ══ -->
+<div id="screen-google" class="auth-screen">
+  <div class="auth-wrap">
+    <div class="auth-brand">
+      <div class="brand-mark">✦</div>
+      <h1 class="brand-name">Bullet</h1>
+      <p class="brand-sub">나만의 불렛저널</p>
     </div>
-    <div class="google-login-area">
-      <p class="pin-hint" id="google-hint">Google 계정으로 로그인해 주세요</p>
-      <button class="google-login-btn" id="google-login-btn">
-        <svg width="20" height="20" viewBox="0 0 48 48" style="flex-shrink:0">
+    <div class="google-area">
+      <button class="google-btn" id="google-btn">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
           <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
           <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
           <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
@@ -35,309 +33,289 @@
         </svg>
         Google로 로그인
       </button>
-      <p class="google-login-note">데이터 저장을 위해 Google 계정이 필요합니다</p>
+      <p class="google-note" id="google-note">데이터 저장을 위해 Google 계정이 필요합니다</p>
     </div>
+    <p class="auth-ver">v1.0.0</p>
   </div>
 </div>
 
-<!-- ───── PIN SCREEN ───── -->
-<div id="pin-screen" class="pin-screen hidden">
-  <div class="pin-wrap">
-    <div class="pin-header">
-      <div class="pin-logo">✦</div>
-      <h1 class="pin-title">Bullet</h1>
-      <p class="pin-sub">나만의 불렛저널</p>
+<!-- ══ PIN SCREEN ══ -->
+<div id="screen-pin" class="auth-screen hidden">
+  <div class="auth-wrap">
+    <div class="auth-brand">
+      <div class="brand-mark">✦</div>
+      <h1 class="brand-name">Bullet</h1>
     </div>
     <div class="pin-dots" id="pin-dots">
-      <span class="pin-dot" id="dot-0"></span>
-      <span class="pin-dot" id="dot-1"></span>
-      <span class="pin-dot" id="dot-2"></span>
-      <span class="pin-dot" id="dot-3"></span>
+      <span class="pdot" id="pdot-0"></span>
+      <span class="pdot" id="pdot-1"></span>
+      <span class="pdot" id="pdot-2"></span>
+      <span class="pdot" id="pdot-3"></span>
     </div>
-    <p class="pin-hint" id="pin-hint">PIN을 입력하세요</p>
-    <div class="pin-keypad">
-      <button class="key-btn" data-k="1">1</button>
-      <button class="key-btn" data-k="2">2</button>
-      <button class="key-btn" data-k="3">3</button>
-      <button class="key-btn" data-k="4">4</button>
-      <button class="key-btn" data-k="5">5</button>
-      <button class="key-btn" data-k="6">6</button>
-      <button class="key-btn" data-k="7">7</button>
-      <button class="key-btn" data-k="8">8</button>
-      <button class="key-btn" data-k="9">9</button>
-      <button class="key-btn key-empty"></button>
-      <button class="key-btn" data-k="0">0</button>
-      <button class="key-btn key-del" id="key-del">⌫</button>
+    <p class="pin-msg" id="pin-msg">PIN을 입력하세요</p>
+    <div class="pin-pad">
+      <button class="pkey" data-k="1">1</button>
+      <button class="pkey" data-k="2">2</button>
+      <button class="pkey" data-k="3">3</button>
+      <button class="pkey" data-k="4">4</button>
+      <button class="pkey" data-k="5">5</button>
+      <button class="pkey" data-k="6">6</button>
+      <button class="pkey" data-k="7">7</button>
+      <button class="pkey" data-k="8">8</button>
+      <button class="pkey" data-k="9">9</button>
+      <span class="pkey-blank"></span>
+      <button class="pkey" data-k="0">0</button>
+      <button class="pkey pkey-del" id="pkey-del">⌫</button>
     </div>
   </div>
 </div>
 
-<!-- ───── MAIN APP ───── -->
-<div id="app" class="app hidden">
+<!-- ══ MAIN APP ══ -->
+<div id="app" class="hidden">
 
-  <!-- Top Bar -->
-  <header class="top-bar">
-    <div class="top-bar-l">
+  <!-- Top Nav -->
+  <header class="top-nav">
+    <div class="nav-left">
       <button class="hamburger" id="hamburger">
         <span></span><span></span><span></span>
       </button>
-      <span class="app-brand">✦ Bullet</span>
+      <span class="nav-logo">✦ Bullet</span>
     </div>
-    <div class="top-bar-r">
-      <span class="gsync-dot" id="gsync-dot" title="Google 연결 상태"></span>
-      <button class="icon-btn" id="theme-toggle" title="테마 전환">◐</button>
+    <nav class="nav-tabs" id="nav-tabs">
+      <button class="ntab active" data-tab="home">메인</button>
+      <button class="ntab" data-tab="diary">다이어리</button>
+      <button class="ntab" data-tab="project">프로젝트</button>
+      <button class="ntab" data-tab="language">언어</button>
+      <button class="ntab" data-tab="writing">글쓰기</button>
+      <button class="ntab" data-tab="stats">월간통계</button>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" id="refresh-btn" title="새로고침">↻</button>
+      <button class="icon-btn" id="theme-btn" title="테마 전환">◐</button>
     </div>
   </header>
 
-  <!-- Side Nav (mobile overlay) -->
-  <div class="side-overlay" id="side-overlay"></div>
-  <nav class="side-nav" id="side-nav">
-    <div class="side-nav-head">
-      <span class="app-brand">✦ Bullet</span>
-      <button class="icon-btn" id="close-nav">✕</button>
+  <!-- Mobile Drawer -->
+  <div id="drawer-overlay" class="drawer-overlay"></div>
+  <nav id="drawer" class="drawer">
+    <div class="drawer-head">
+      <span class="nav-logo">✦ Bullet</span>
+      <button class="icon-btn" id="drawer-close">✕</button>
     </div>
-    <ul>
-      <li><button class="snav-item" data-tab="home">🏠 홈</button></li>
-      <li><button class="snav-item" data-tab="todo">✅ 투두</button></li>
-      <li><button class="snav-item" data-tab="review">📚 평론</button></li>
-      <li><button class="snav-item" data-tab="language">🌐 언어공부</button></li>
-      <li><button class="snav-item" data-tab="diary">📖 일기</button></li>
-      <li><button class="snav-item" data-tab="project">🗂 프로젝트</button></li>
-      <li><button class="snav-item" data-tab="travel">✈️ 여행</button></li>
-      <li><button class="snav-item" data-tab="settings">⚙️ 설정</button></li>
-    </ul>
+    <div class="drawer-body">
+      <button class="drawer-item active" data-tab="home">🏠 메인</button>
+      <button class="drawer-item" data-tab="diary">📖 다이어리</button>
+      <button class="drawer-item" data-tab="project">🗂 프로젝트</button>
+      <button class="drawer-item" data-tab="language">🌐 언어</button>
+      <button class="drawer-item" data-tab="writing">✏️ 글쓰기</button>
+      <button class="drawer-item" data-tab="stats">📊 월간통계</button>
+    </div>
   </nav>
 
-  <!-- Content -->
-  <main class="main-content" id="main-content">
+  <!-- Main Content -->
+  <main id="main-content">
 
-    <!-- HOME -->
-    <section class="tab-pane active" id="tab-home">
-      <div class="home-wrap">
-        <div class="home-date-block">
-          <div class="home-date-big" id="home-date-big"></div>
-          <div class="home-date-sub" id="home-date-sub"></div>
+    <!-- HOME TAB -->
+    <div class="tab-pane active" id="tab-home">
+      <div class="home-layout">
+
+        <!-- Left: Calendar -->
+        <div class="home-left">
+          <div class="cal-head">
+            <button class="cal-nav" id="cal-prev">‹</button>
+            <span class="cal-month-label" id="cal-month-label"></span>
+            <button class="cal-nav" id="cal-next">›</button>
+          </div>
+          <div class="cal-dow">
+            <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+          <div class="cal-event-panel" id="cal-event-panel"></div>
         </div>
-        <div class="home-grid">
-          <div class="home-card" id="hc-todo">
-            <div class="hc-title">오늘의 할 일</div>
-            <div class="hc-body" id="hc-todo-body"><div class="skeleton-line"></div></div>
-            <button class="hc-more" data-tab="todo">투두 보기 →</button>
-          </div>
-          <div class="home-card" id="hc-routine">
-            <div class="hc-title">오늘의 루틴</div>
-            <div class="hc-body" id="hc-routine-body"><div class="skeleton-line"></div></div>
-            <button class="hc-more" data-tab="todo">루틴 보기 →</button>
-          </div>
-          <div class="home-card" id="hc-diary">
-            <div class="hc-title">최근 일기</div>
-            <div class="hc-body" id="hc-diary-body"><div class="skeleton-line"></div></div>
-            <button class="hc-more" data-tab="diary">일기 보기 →</button>
-          </div>
-          <div class="home-card" id="hc-project">
-            <div class="hc-title">진행 중 프로젝트</div>
-            <div class="hc-body" id="hc-project-body"><div class="skeleton-line"></div></div>
-            <button class="hc-more" data-tab="project">프로젝트 보기 →</button>
-          </div>
+
+        <!-- Right: Sections -->
+        <div class="home-right" id="home-right">
+          <div class="sel-date-label" id="sel-date-label"></div>
+
+          <!-- Daily Routine -->
+          <section class="h-section">
+            <div class="h-sec-head">
+              <h3 class="h-sec-title">Daily Routine</h3>
+              <button class="h-sec-action" id="routine-settings-btn">관리</button>
+            </div>
+            <div id="routine-list"></div>
+          </section>
+
+          <!-- Weekly Goal -->
+          <section class="h-section">
+            <div class="h-sec-head">
+              <h3 class="h-sec-title">Weekly Goal</h3>
+              <span class="week-range-label" id="week-range-label"></span>
+            </div>
+            <div id="weekly-list"></div>
+            <input class="inline-add-input" id="weekly-add" placeholder="+ 목표를 입력하고 Enter">
+          </section>
+
+          <!-- To-Do Deep -->
+          <section class="h-section">
+            <div class="h-sec-head">
+              <h3 class="h-sec-title">To-Do <span class="badge deep">Deep</span></h3>
+            </div>
+            <div id="todo-deep-list"></div>
+            <input class="inline-add-input" id="todo-deep-add" placeholder="+ 할 일을 입력하고 Enter">
+          </section>
+
+          <!-- To-Do Non-Deep -->
+          <section class="h-section">
+            <div class="h-sec-head">
+              <h3 class="h-sec-title">To-Do <span class="badge non">Non-Deep</span></h3>
+            </div>
+            <div id="todo-non-list"></div>
+            <input class="inline-add-input" id="todo-non-add" placeholder="+ 할 일을 입력하고 Enter">
+          </section>
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- TODO -->
-    <section class="tab-pane" id="tab-todo">
-      <div class="todo-wrap">
-        <div class="date-strip-outer">
-          <div class="date-strip" id="date-strip"></div>
-        </div>
-        <div class="weekly-ref-block" id="weekly-ref-block"></div>
-        <div class="todo-section">
-          <div class="sec-header">
-            <h3>할 일</h3>
-            <button class="fab-sm" id="add-todo-btn">+</button>
+    <!-- DIARY TAB -->
+    <div class="tab-pane hidden" id="tab-diary">
+      <div class="diary-wrap">
+        <div class="diary-mini-wrap">
+          <div class="diary-mini-head">
+            <button class="cal-nav" id="dcal-prev">‹</button>
+            <span id="dcal-label"></span>
+            <button class="cal-nav" id="dcal-next">›</button>
           </div>
-          <div class="tag-row" id="tag-row">
-            <button class="tag-chip active" data-tag="전체">전체</button>
-            <button class="tag-chip" data-tag="작업">작업</button>
-            <button class="tag-chip" data-tag="건강">건강</button>
-            <button class="tag-chip" data-tag="일상">일상</button>
-            <button class="tag-chip" data-tag="기타">기타</button>
+          <div class="diary-mini-dow">
+            <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
           </div>
-          <div class="todo-list" id="todo-list"></div>
+          <div class="diary-mini-grid" id="diary-mini-grid"></div>
         </div>
-        <div class="routine-section">
-          <div class="sec-header"><h3>오늘의 루틴</h3></div>
-          <div class="routine-btn-row" id="routine-btn-row"></div>
-          <div class="routine-extra" id="routine-extra"></div>
-        </div>
+        <div class="diary-week-grid" id="diary-week-grid"></div>
       </div>
-    </section>
+    </div>
 
-    <!-- REVIEW -->
-    <section class="tab-pane" id="tab-review">
-      <div class="review-wrap">
-        <div class="review-head">
-          <div class="cat-chips" id="cat-chips">
-            <button class="cat-chip active" data-cat="전체">전체</button>
-            <button class="cat-chip" data-cat="독서">독서</button>
-            <button class="cat-chip" data-cat="영화">영화</button>
-            <button class="cat-chip" data-cat="드라마">드라마</button>
-            <button class="cat-chip" data-cat="웹툰웹소설">웹툰/웹소설</button>
-          </div>
-          <button class="btn-write" id="add-review-btn">+ 글쓰기</button>
+    <!-- PROJECT TAB -->
+    <div class="tab-pane hidden" id="tab-project">
+      <div id="project-gallery-view">
+        <div class="tab-toolbar">
+          <h2 class="tab-page-h">프로젝트</h2>
+          <button class="btn-primary" id="add-project-btn">+ 새 프로젝트</button>
         </div>
-        <div class="review-gallery" id="review-gallery"></div>
+        <div class="project-grid" id="project-grid"></div>
       </div>
-    </section>
+      <div id="project-detail-view" class="hidden">
+        <div class="tab-toolbar">
+          <button class="back-btn" id="project-back">← 목록</button>
+          <button class="btn-danger-sm" id="proj-del-btn">삭제</button>
+        </div>
+        <div id="project-detail-body"></div>
+      </div>
+    </div>
 
-    <!-- LANGUAGE -->
-    <section class="tab-pane" id="tab-language">
+    <!-- LANGUAGE TAB -->
+    <div class="tab-pane hidden" id="tab-language">
       <div class="lang-wrap">
         <div class="lang-top">
           <div class="lang-sel" id="lang-sel">
             <button class="lang-btn active" data-lang="일본어">🇯🇵 일본어</button>
             <button class="lang-btn" data-lang="영어">🇺🇸 영어</button>
           </div>
-          <div class="subtab-row" id="subtab-row">
-            <button class="subtab active" data-subtab="words">단어장</button>
-            <button class="subtab" data-subtab="grammar">문법노트</button>
-            <button class="subtab" data-subtab="phrases">회화표현</button>
-            <button class="subtab" data-subtab="duolingo">듀오링고</button>
+          <div class="lang-subtabs" id="lang-subtabs">
+            <button class="lstab active" data-sub="words">단어장</button>
+            <button class="lstab" data-sub="grammar">문법노트</button>
+            <button class="lstab" data-sub="phrases">회화표현</button>
+            <button class="lstab" data-sub="duolingo">듀오링고</button>
           </div>
         </div>
-        <div class="lang-body" id="lang-body"></div>
+        <div id="lang-body"></div>
       </div>
-    </section>
+    </div>
 
-    <!-- DIARY -->
-    <section class="tab-pane" id="tab-diary">
-      <div class="diary-wrap">
-        <div class="diary-top-tabs">
-          <button class="dtab active" data-dtab="daily">하루</button>
-          <button class="dtab" data-dtab="weekly">주간</button>
-          <button class="dtab" data-dtab="monthly">월간</button>
-        </div>
-        <div class="diary-body" id="diary-body"></div>
-      </div>
-    </section>
-
-    <!-- PROJECT -->
-    <section class="tab-pane" id="tab-project">
-      <div class="project-wrap">
-        <div class="project-head">
-          <div class="status-chips" id="status-chips">
-            <button class="status-chip active" data-st="전체">전체</button>
-            <button class="status-chip" data-st="계획">계획</button>
-            <button class="status-chip" data-st="진행중">진행중</button>
-            <button class="status-chip" data-st="완료">완료</button>
-            <button class="status-chip" data-st="보류">보류</button>
+    <!-- WRITING TAB -->
+    <div class="tab-pane hidden" id="tab-writing">
+      <div id="writing-gallery-view">
+        <div class="tab-toolbar writing-toolbar">
+          <div class="cat-chips" id="writing-cat-chips">
+            <button class="cat-chip active" data-cat="전체">전체</button>
+            <button class="cat-chip" data-cat="독서">독서</button>
+            <button class="cat-chip" data-cat="영화">영화</button>
+            <button class="cat-chip" data-cat="드라마">드라마</button>
+            <button class="cat-chip" data-cat="웹툰웹소설">웹툰/웹소설</button>
           </div>
-          <div class="project-actions">
-            <button class="btn-sm" id="view-toggle">⊞ 칸반</button>
-            <button class="fab-sm" id="add-project-btn">+</button>
-          </div>
+          <button class="btn-primary" id="add-writing-btn">+ 글쓰기</button>
         </div>
-        <div class="project-view" id="project-view"></div>
+        <div class="writing-grid" id="writing-grid"></div>
       </div>
-    </section>
-
-    <!-- TRAVEL -->
-    <section class="tab-pane" id="tab-travel">
-      <div class="travel-wrap">
-        <div class="travel-head">
-          <h2 class="section-title-lg">✈️ 여행 기록</h2>
-          <button class="btn-write" id="add-travel-btn">+ 여행 추가</button>
+      <div id="writing-form-view" class="hidden">
+        <div class="tab-toolbar">
+          <button class="back-btn" id="writing-form-back">← 목록</button>
+          <h2 class="tab-page-h" id="writing-form-title">새 글쓰기</h2>
         </div>
-        <div class="travel-gallery" id="travel-gallery"></div>
+        <div class="form-wrap" id="writing-form-body"></div>
       </div>
-    </section>
-
-    <!-- SETTINGS -->
-    <section class="tab-pane" id="tab-settings">
-      <div class="settings-wrap">
-        <h2 class="section-title-lg">⚙️ 설정</h2>
-
-        <div class="settings-block">
-          <div class="settings-block-title">루틴 관리</div>
-          <div id="routine-mgmt-list"></div>
-          <button class="btn-outline mt-8" id="add-routine-btn">+ 루틴 추가</button>
-        </div>
-
-        <div class="settings-block">
-          <div class="settings-block-title">테마</div>
-          <div class="settings-row">
-            <span>다크 모드</span>
-            <label class="toggle-sw">
-              <input type="checkbox" id="dark-mode-cb">
-              <span class="toggle-track"></span>
-            </label>
+      <div id="writing-detail-view" class="hidden">
+        <div class="tab-toolbar">
+          <button class="back-btn" id="writing-detail-back">← 목록</button>
+          <div class="flex-row gap8">
+            <button class="btn-outline-sm" id="writing-edit-btn">수정</button>
+            <button class="btn-danger-sm" id="writing-delete-btn">삭제</button>
           </div>
         </div>
-
-        <div class="settings-block">
-          <div class="settings-block-title">Google 연결</div>
-          <div id="google-conn-section">
-            <p class="settings-desc" id="google-conn-status">연결 상태 확인 중...</p>
-            <button class="btn-outline" id="google-conn-btn" style="display:none">Google 계정 연결</button>
-          </div>
-        </div>
-
-        <div class="settings-block">
-          <div class="settings-block-title">정보</div>
-          <p class="settings-desc">Bullet Journal v1.0.0</p>
-          <p class="settings-desc">나만의 미도리 수첩 ✦</p>
-        </div>
+        <div id="writing-detail-body"></div>
       </div>
-    </section>
+    </div>
+
+    <!-- STATS TAB -->
+    <div class="tab-pane hidden" id="tab-stats">
+      <div class="stats-wrap">
+        <div class="stats-head">
+          <button class="cal-nav" id="stats-prev">‹</button>
+          <span class="cal-month-label" id="stats-label"></span>
+          <button class="cal-nav" id="stats-next">›</button>
+        </div>
+        <div id="stats-body"></div>
+      </div>
+    </div>
 
   </main>
+</div>
 
-  <!-- Bottom Nav -->
-  <nav class="bottom-nav" id="bottom-nav">
-    <button class="bnav-item active" data-tab="home"><span class="bnav-icon">🏠</span><span class="bnav-lbl">홈</span></button>
-    <button class="bnav-item" data-tab="todo"><span class="bnav-icon">✅</span><span class="bnav-lbl">투두</span></button>
-    <button class="bnav-item" data-tab="review"><span class="bnav-icon">📚</span><span class="bnav-lbl">평론</span></button>
-    <button class="bnav-item" data-tab="language"><span class="bnav-icon">🌐</span><span class="bnav-lbl">언어</span></button>
-    <button class="bnav-item" data-tab="diary"><span class="bnav-icon">📖</span><span class="bnav-lbl">일기</span></button>
-    <button class="bnav-item" data-tab="project"><span class="bnav-icon">🗂</span><span class="bnav-lbl">프로젝트</span></button>
-    <button class="bnav-item" data-tab="travel"><span class="bnav-icon">✈️</span><span class="bnav-lbl">여행</span></button>
-    <button class="bnav-item" data-tab="settings"><span class="bnav-icon">⚙️</span><span class="bnav-lbl">설정</span></button>
-  </nav>
-
-</div><!-- /#app -->
-
-<!-- ───── UNIVERSAL MODAL ───── -->
-<div class="modal-overlay hidden" id="modal-overlay">
-  <div class="modal" id="modal">
+<!-- ══ ROUTINE SETTINGS MODAL ══ -->
+<div id="routine-modal" class="overlay hidden">
+  <div class="modal-box">
     <div class="modal-head">
-      <h3 id="modal-title"></h3>
-      <button class="icon-btn" id="modal-close">✕</button>
+      <h3>루틴 관리</h3>
+      <button class="icon-btn" id="routine-modal-close">✕</button>
     </div>
-    <div class="modal-body" id="modal-body"></div>
-    <div class="modal-foot" id="modal-foot"></div>
+    <div class="modal-body" id="routine-modal-body"></div>
+    <div class="modal-foot">
+      <input class="form-input" id="routine-add-input" placeholder="루틴 이름 입력 후 Enter">
+    </div>
   </div>
 </div>
 
-<!-- ───── CONFIRM DIALOG ───── -->
-<div class="modal-overlay hidden" id="confirm-overlay">
-  <div class="modal confirm-modal">
-    <div class="modal-body">
-      <p id="confirm-msg" class="confirm-text"></p>
-    </div>
-    <div class="modal-foot">
+<!-- ══ CONFIRM DIALOG ══ -->
+<div id="confirm-overlay" class="overlay hidden">
+  <div class="confirm-box">
+    <p id="confirm-msg" class="confirm-text"></p>
+    <div class="confirm-btns">
       <button class="btn-outline" id="confirm-no">취소</button>
       <button class="btn-danger" id="confirm-yes">삭제</button>
     </div>
   </div>
 </div>
 
-<!-- ───── TOAST ───── -->
+<!-- ══ TOAST ══ -->
 <div id="toast-wrap"></div>
 
-<!-- ───── LOADING ───── -->
-<div class="loading-overlay hidden" id="loading-overlay">
+<!-- ══ LOADING ══ -->
+<div id="loading-overlay" class="hidden">
   <div class="spinner"></div>
 </div>
 
-<script src="app.js" defer></script>
+<script src="auth.js" defer></script>
+<script src="sheets.js" defer></script>
+<script src="main.js" defer></script>
 </body>
 </html>
