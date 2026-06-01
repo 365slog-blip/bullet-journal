@@ -1576,51 +1576,46 @@ function renderStats() {
     return `${ms}-${String(d).padStart(2,'0')}`;
   });
 
+  const diaryCount   = S.diaryEntries.filter(e => e.날짜.startsWith(ms) && e.내용).length;
+  const projDone     = S.projects.filter(p => p.상태 === '완료').length;
+  const writingCount = writ.filter(w => w._cat==='영화'||w._cat==='드라마'||w._cat==='웹툰웹소설').length;
+
   document.getElementById('stats-body').innerHTML = `
-    <div class="stats-section">
-      <div class="stats-section-title">루틴 달성 현황</div>
-      <div style="overflow-x:auto">
-        <div style="display:flex;gap:3px;margin-bottom:6px;padding-left:160px">
-          ${days.map((_, i) => `<div style="width:18px;text-align:center;font-size:.6rem;color:var(--text3);flex-shrink:0">${i+1}</div>`).join('')}
-        </div>
+    <div class="stats-top-grid">
+      <div class="stats-section" style="margin-bottom:0">
+        <div class="stats-section-title">루틴 달성 현황</div>
         ${sorted.map(rt => {
           const doneDays = new Set(recs.filter(r => r.루틴명===rt.루틴명 && r.완료==='TRUE').map(r => r.날짜));
           const cnt = doneDays.size;
           return `<div class="stat-grid-row">
             <span class="stat-grid-label">${rt.루틴명}</span>
-            <div class="stat-day-grid">
-              ${days.map(ds => `<div class="stat-day-box${doneDays.has(ds)?' done':''}" title="${ds.split('-')[2]}일"></div>`).join('')}
-            </div>
-            <span class="stat-grid-count">${cnt}/${dim}</span>
+            <div class="stat-day-grid">${days.map(ds =>
+              `<div class="stat-day-box${doneDays.has(ds)?' done':''}" title="${+ds.split('-')[2]}일"></div>`
+            ).join('')}</div><span class="stat-grid-count">${cnt}/${dim}</span>
           </div>`;
         }).join('') || '<p style="color:var(--text3);font-size:.82rem">루틴 없음</p>'}
       </div>
-    </div>
-    <div class="stats-section">
-      <div class="stats-section-title">체중 변화</div>
-      <div id="weight-chart-wrap"></div>
+      <div class="stats-section" style="margin-bottom:0">
+        <div class="stats-section-title">체중 변화</div>
+        <div id="weight-chart-wrap"></div>
+      </div>
     </div>
     <div class="stats-section">
       <div class="stats-section-title">이번 달 기록</div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;text-align:center">
-        ${(() => {
-          const diaryCount   = S.diaryEntries.filter(e => e.날짜.startsWith(ms) && e.내용).length;
-          const projDone     = S.projects.filter(p => p.상태 === '완료').length;
-          const writingCount = writ.filter(w => w._cat==='영화'||w._cat==='드라마'||w._cat==='웹툰웹소설').length;
-          return [
-            ['독서',   writ.filter(w=>w._cat==='독서').length, '📚'],
-            ['글쓰기', writingCount,                           '🎬'],
-            ['일기',   diaryCount,                            '📓'],
-            ['프로젝트완료', projDone,                         '🗂'],
-            ['듀오링고', duo.length,                           '🦜'],
-          ].map(([lbl,cnt,ico])=>
-            `<div style="background:var(--bg2);border-radius:var(--radius);padding:12px 6px">
-              <div style="font-size:1.4rem">${ico}</div>
-              <div style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:4px 0">${cnt}</div>
-              <div style="font-size:.7rem;color:var(--text3)">${lbl}</div>
-            </div>`
-          ).join('');
-        })()}
+        ${[
+          ['독서',   writ.filter(w=>w._cat==='독서').length, '📚'],
+          ['글쓰기', writingCount,                           '🎬'],
+          ['일기',   diaryCount,                             '📓'],
+          ['프로젝트완료', projDone,                          '🗂'],
+          ['듀오링고', duo.length,                            '🦜'],
+        ].map(([lbl,cnt,ico])=>
+          `<div style="background:var(--bg2);border-radius:var(--radius);padding:12px 6px">
+            <div style="font-size:1.4rem">${ico}</div>
+            <div style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:4px 0">${cnt}</div>
+            <div style="font-size:.7rem;color:var(--text3)">${lbl}</div>
+          </div>`
+        ).join('')}
       </div>
     </div>
   `;
