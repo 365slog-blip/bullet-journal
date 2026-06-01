@@ -31,7 +31,7 @@ async function sheetsRead(sheetName) {
 async function sheetsAppend(sheetName, row) {
   const h = authHeaders();
   if (!h) { showToast('로그인이 필요합니다', true); return null; }
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CFG.SHEET_ID}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CFG.SHEET_ID}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
   const r = await fetch(url, {
     method: 'POST',
     headers: { ...h, 'Content-Type': 'application/json' },
@@ -44,7 +44,7 @@ async function sheetsUpdate(sheetName, rowNum, row) {
   const h = authHeaders();
   if (!h) { showToast('로그인이 필요합니다', true); return null; }
   const range = `${sheetName}!A${rowNum}`;
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CFG.SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CFG.SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
   const r = await fetch(url, {
     method: 'PUT',
     headers: { ...h, 'Content-Type': 'application/json' },

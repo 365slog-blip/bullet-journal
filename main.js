@@ -546,6 +546,11 @@ function renderTodos(type) {
     tdPending = true;
     inp.value = '';
     setTimeout(() => { inp.value = ''; }, 0);
+    // optimistic: add to local state immediately so UI updates before network round-trip
+    const tempRow = { _row: -1, 날짜: S.selDate, 항목: val, 타입: type, 완료: 'FALSE' };
+    if (type === 'deep') S.todoDeep.push(tempRow);
+    else S.todoNon.push(tempRow);
+    renderTodos(type);
     await sheetsAppend('투두', [S.selDate, val, type, 'FALSE']);
     const rows = await sheetsRead('투두');
     const all  = parseRows(rows, ['날짜', '항목', '타입', '완료']);
