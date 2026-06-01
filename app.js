@@ -46,7 +46,6 @@ const S = {
   flashcardRevealed: false,
   grammarNotes: {},
   phraseNotes: {},
-  tokenClient: null,
 };
 
 // ── UTILITIES ────────────────────────────────────────────
@@ -171,61 +170,64 @@ function checkPin() {
   }
 }
 
-// ── GOOGLE AUTH ───────────────────────────────────────────
-// 순서: Google 로그인 버튼 클릭 → OAuth → PIN 화면 → 앱
-
-function setupGoogleAuth() {
-  // GIS 라이브러리 로드 대기 후 tokenClient 초기화 (auth 트리거 안 함)
-  return new Promise(resolve => {
-    const check = setInterval(() => {
-      if (window.google && window.google.accounts) {
-        clearInterval(check);
-        S.tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: CFG.CLIENT_ID,
-          scope: CFG.SCOPES,
-          callback: handleToken,
-          // prompt는 requestAccessToken 호출 시 각각 지정
-        });
-        resolve(true);
-      }
-    }, 200);
-    // 8초 내에 GIS 로드 안 되면 실패 처리
-    setTimeout(() => { clearInterval(check); resolve(false); }, 8000);
-  });
-}
+// ── GOOGLE AUTH (redirect implicit grant flow) ─────────────
+// 팝업 없음. window.location.href 로 구글 로그인 페이지로 이동 →
+// 로그인 완료 후 URL 해시(#access_token=...)로 앱에 돌아옴.
 
 function startGoogleLogin() {
-  // 버튼 클릭으로 호출 → 팝업 차단 없음
-  if (!S.tokenClient) {
-    showGoogleHint('Google API 로딩 중입니다. 잠시 후 다시 시도해주세요.', true);
-    return;
-  }
-  showGoogleHint('로그인 중...', false);
-  S.tokenClient.requestAccessToken({ prompt: 'select_account' });
+  // 전체 페이지 리다이렉트 → 팝업 차단 없음, 모든 브라우저 지원
+  const params = new URLSearchParams({
+    client_id:              CFG.CLIENT_ID,
+    redirect_uri:           getRedirectUri(),
+    response_type:          'token',
+    scope:                  CFG.SCOPES,
+    include_granted_scopes: 'true',
+    prompt:                 'select_account',
+    state:                  'glogin',
+  });
+  window.location.href =
+    'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
 }
 
-function trySilentAuth() {
-  // 이미 이 브라우저에서 승인된 계정이면 팝업 없이 토큰 획득
-  if (!S.tokenClient) return;
-  try {
-    S.tokenClient.requestAccessToken({ prompt: 'none' });
-  } catch(e) {
-    // 무시 — 실패 시 사용자가 버튼 클릭
-  }
+function getRedirectUri() {
+  // 해시/쿼리를 제외한 현재 URL (GitHub Pages 경로 포함)
+  return window.location.origin + window.location.pathname;
 }
 
-function handleToken(resp) {
-  if (resp.error) {
-    // 'immediate_failed' 등 silent auth 실패는 버튼 화면 유지
-    if (resp.error === 'immediate_failed' || resp.error === 'user_cancel') return;
-    showGoogleHint('로그인에 실패했습니다. 다시 시도해주세요.', true);
-    return;
-  }
-  S.accessToken = resp.access_token;
-  S.tokenExpiry = Date.now() + (resp.expires_in || 3600) * 1000 - 60000;
-  scheduleTokenRefresh(resp.expires_in || 3600);
+function checkOAuthCallback() {
+  // 구글 리다이렉트 후 URL 해시에서 토큰 추출
+  const hash = window.location.hash;
+  if (!hash || !hash.includes('access_token')) return null;
+  const params   = new URLSearchParams(hash.slice(1)); // '#' 제거
+  const token    = params.get('access_token');
+  const expiresIn = +(params.get('expires_in') || '3600');
+  // URL 해시 즉시 제거 (토큰이 주소창에 노출되지 않도록)
+  window.history.replaceState({}, document.title, window.location.pathname);
+  if (!token) return null;
+  return { token, expiresIn };
+}
+
+function saveTokenToSession(token, expiresIn) {
+  // 페이지 새로고침 시 재로그인 방지 (탭/브라우저 닫으면 소멸)
+  const expiry = Date.now() + expiresIn * 1000 - 60000;
+  sessionStorage.setItem('bjToken',  token);
+  sessionStorage.setItem('bjExpiry', String(expiry));
+}
+
+function loadTokenFromSession() {
+  const token  = sessionStorage.getItem('bjToken');
+  const expiry = +(sessionStorage.getItem('bjExpiry') || '0');
+  if (token && Date.now() < expiry) return { token, expiry };
+  return null;
+}
+
+function applyToken(token, expiry) {
+  S.accessToken  = token;
+  S.tokenExpiry  = expiry;
   updateGoogleStatus(true);
-  // Google 로그인 성공 → PIN 화면으로
+}
+
+function showPinScreen() {
   el('google-screen').classList.add('hidden');
   el('pin-screen').classList.remove('hidden');
   pinVal = '';
@@ -234,28 +236,21 @@ function handleToken(resp) {
   el('pin-hint').classList.remove('err');
 }
 
-function scheduleTokenRefresh(expiresIn) {
-  // 만료 5분 전 자동 갱신 (사용 중 끊김 방지)
-  const delay = Math.max((expiresIn - 300) * 1000, 60000);
-  setTimeout(() => {
-    if (S.accessToken && S.tokenClient) {
-      S.tokenClient.requestAccessToken({ prompt: 'none' });
-    }
-  }, delay);
-}
-
 function updateGoogleStatus(ok) {
   const dot = el('gsync-dot');
   dot.classList.toggle('ok', ok);
   dot.classList.toggle('fail', !ok);
   const statusEl = el('google-conn-status');
-  const btnEl = el('google-conn-btn');
-  if (statusEl) statusEl.textContent = ok ? '✓ Google 계정이 연결되어 있습니다' : 'Google 계정이 연결되지 않았습니다';
+  const btnEl    = el('google-conn-btn');
+  if (statusEl) statusEl.textContent = ok
+    ? '✓ Google 계정이 연결되어 있습니다'
+    : '세션이 만료되었습니다. 다시 로그인해주세요.';
   if (btnEl) btnEl.style.display = ok ? 'none' : 'inline-block';
 }
 
 function showGoogleHint(msg, isErr) {
   const hint = el('google-hint');
+  if (!hint) return;
   hint.textContent = msg;
   hint.classList.toggle('err', isErr);
 }
@@ -1806,11 +1801,11 @@ function initApp() {
   initPullToRefresh();
 
   renderTab('home');
-  updateGoogleStatus(true); // Google 로그인을 통과했으므로 항상 연결됨
+  updateGoogleStatus(true);
 }
 
 // ── BOOT ──────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', () => {
   // 테마 먼저 적용
   const savedTheme = localStorage.getItem('theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
@@ -1818,24 +1813,27 @@ window.addEventListener('DOMContentLoaded', async () => {
   // PIN 키패드 이벤트 등록
   initPinScreen();
 
-  // GIS 라이브러리 로드 대기 및 tokenClient 초기화
-  const ready = await setupGoogleAuth();
-
-  if (!ready) {
-    // GIS 로드 실패 (네트워크 문제 등)
-    showGoogleHint('Google API 로드에 실패했습니다. 페이지를 새로고침해 주세요.', true);
-    return;
+  // ① 구글 OAuth 리다이렉트 후 돌아온 경우 — URL 해시에 토큰이 있음
+  const oauthResult = checkOAuthCallback();
+  if (oauthResult) {
+    const expiry = Date.now() + oauthResult.expiresIn * 1000 - 60000;
+    applyToken(oauthResult.token, expiry);
+    saveTokenToSession(oauthResult.token, oauthResult.expiresIn);
+    showPinScreen();
+    return; // 구글 로그인 화면 건너뜀
   }
 
-  // Google 로그인 버튼 이벤트 (버튼 클릭 → 팝업 차단 없음)
+  // ② 같은 세션에서 이미 로그인한 경우 — sessionStorage에 유효한 토큰 있음
+  const cached = loadTokenFromSession();
+  if (cached) {
+    applyToken(cached.token, cached.expiry);
+    showPinScreen();
+    return; // 구글 로그인 화면 건너뜀
+  }
+
+  // ③ 로그인 필요 — 구글 로그인 버튼 화면 표시
   el('google-login-btn').addEventListener('click', startGoogleLogin);
-
-  // 설정 탭의 재연결 버튼도 동일하게 처리
   el('google-conn-btn').addEventListener('click', startGoogleLogin);
-
-  // 이미 이 브라우저에서 승인된 계정이 있으면 자동 로그인 시도
-  // 성공 시 handleToken이 호출되어 PIN 화면으로 자동 이동
-  trySilentAuth();
 });
 
 // Register SW
