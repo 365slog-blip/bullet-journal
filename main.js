@@ -1729,8 +1729,11 @@ function renderStats() {
         }).join('') || '<p style="color:var(--text3);font-size:.82rem">루틴 없음</p>'}
       </div>
       <div class="stats-section" style="margin-bottom:0">
-        <div class="stats-section-title">체중 변화</div>
-        <div id="weight-chart-wrap"></div>
+        <div class="stats-section-title" style="display:flex;align-items:center;justify-content:space-between">
+          체중 변화
+          <button class="btn-sm" id="weight-toggle-btn">${_weightVisible ? '숨기기' : '보기'}</button>
+        </div>
+        <div id="weight-chart-wrap" class="${_weightVisible ? '' : 'weight-blurred'}"></div>
       </div>
     </div>
     <div class="stats-section">
@@ -1752,6 +1755,12 @@ function renderStats() {
       </div>
     </div>
   `;
+
+  document.getElementById('weight-toggle-btn').addEventListener('click', () => {
+    _weightVisible = !_weightVisible;
+    document.getElementById('weight-toggle-btn').textContent = _weightVisible ? '숨기기' : '보기';
+    document.getElementById('weight-chart-wrap').classList.toggle('weight-blurred', !_weightVisible);
+  });
 
   const wrap = document.getElementById('weight-chart-wrap');
   if (!wPts.length) {
@@ -2153,6 +2162,7 @@ function initPullToRefresh() {
 
 // ── BOOT ──────────────────────────────────────────────
 let _appReady = false;
+let _weightVisible = false;
 
 function onPinSuccess() {
   // 잠금 해제 시: 데이터 유지, 현재 탭만 재렌더
