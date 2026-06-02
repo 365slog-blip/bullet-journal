@@ -89,11 +89,10 @@ function initNav() {
     html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
     localStorage.setItem('bjTheme', html.dataset.theme);
   });
-  document.getElementById('refresh-btn').addEventListener('click', async () => {
-    showLoading();
-    try { await loadData(); switchTab(S.tab); showToast('새로고침 완료'); }
-    catch (e) { showToast('새로고침 실패', true); }
-    finally  { hideLoading(); }
+  // 잠금 버튼: 구글 토큰 유지, PIN 화면으로만 이동
+  document.getElementById('refresh-btn').addEventListener('click', () => {
+    document.getElementById('app').classList.add('hidden');
+    showPinScreen();
   });
 }
 
@@ -1960,14 +1959,70 @@ function openSubsForm(sub) {
   };
 }
 
+// ── PULL TO REFRESH ────────────────────────────────────
+function initPullToRefresh() {
+  const el        = document.getElementById('main-content');
+  const indicator = document.getElementById('ptr-indicator');
+  const THRESHOLD = 72;
+  let startY = 0, active = false, triggered = false;
+
+  el.addEventListener('touchstart', e => {
+    if (el.scrollTop > 2) return;
+    startY   = e.touches[0].clientY;
+    active   = true;
+    triggered = false;
+  }, { passive: true });
+
+  el.addEventListener('touchmove', e => {
+    if (!active) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy <= 0) { active = false; return; }
+    const h = Math.min(dy * 0.45, 52);
+    indicator.style.height   = h + 'px';
+    indicator.style.opacity  = Math.min(dy / THRESHOLD, 1);
+    triggered = dy >= THRESHOLD;
+    indicator.classList.toggle('ptr-ready', triggered);
+  }, { passive: true });
+
+  el.addEventListener('touchend', async () => {
+    if (!active) return;
+    active = false;
+    indicator.style.height  = '0';
+    indicator.style.opacity = '0';
+    indicator.classList.remove('ptr-ready');
+    if (triggered) {
+      triggered = false;
+      showLoading();
+      try {
+        await loadData();
+        switchTab(S.tab);
+        showToast('새로고침 완료');
+      } catch (err) {
+        showToast('새로고침 실패', true);
+      } finally {
+        hideLoading();
+      }
+    }
+  });
+}
+
 // ── BOOT ──────────────────────────────────────────────
+let _appReady = false;
+
 function onPinSuccess() {
+  // 잠금 해제 시: 데이터 유지, 현재 탭만 재렌더
+  if (_appReady) {
+    switchTab(S.tab);
+    return;
+  }
   showLoading();
   loadData()
     .then(() => {
       hideLoading();
       initNav();
       initLangTab();
+      initPullToRefresh();
+      _appReady = true;
       switchTab('home');
       showToast('환영합니다 ✦');
     })
