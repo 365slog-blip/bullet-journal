@@ -802,8 +802,13 @@ function renderProjectDetail() {
       <div id="task-form-area"></div>
     </div>
     <div class="h-section brainstorm-section">
-      <div class="h-sec-head"><h3 class="h-sec-title">💡 브레인스토밍</h3></div>
-      <textarea class="brainstorm-textarea" id="brainstorm-ta" placeholder="아이디어, 메모, 계획을 자유롭게 작성하세요...">${proj.브레인스토밍||''}</textarea>
+      <div class="h-sec-head">
+        <h3 class="h-sec-title">💡 브레인스토밍</h3>
+        <button class="btn-sm" id="bs-edit-btn" style="display:${proj.브레인스토밍 ? '' : 'none'}">수정</button>
+      </div>
+      <div id="bs-view" class="bs-view" style="display:${proj.브레인스토밍 ? '' : 'none'}">${(proj.브레인스토밍||'').replace(/\n/g,'<br>')}</div>
+      <textarea class="brainstorm-textarea" id="brainstorm-ta" placeholder="아이디어, 메모, 계획을 자유롭게 작성하세요..." style="display:${proj.브레인스토밍 ? 'none' : ''}">${proj.브레인스토밍||''}</textarea>
+      <button class="btn-sm bs-save-btn" id="bs-save-btn" style="display:${proj.브레인스토밍 ? 'none' : ''};margin-top:8px">저장</button>
     </div>
   `;
 
@@ -811,15 +816,33 @@ function renderProjectDetail() {
   document.getElementById('task-add-btn').onclick  = () => openTaskForm(proj);
   renderProjTasks(proj, tasks);
 
-  const bsTa = document.getElementById('brainstorm-ta');
-  let bsTimer;
-  bsTa.addEventListener('input', () => {
-    clearTimeout(bsTimer);
-    bsTimer = setTimeout(async () => {
-      proj.브레인스토밍 = bsTa.value;
-      await sheetsUpdate('프로젝트', proj._row,
-        [proj.ID, proj.제목, proj.설명, proj.색상, proj.시작일, proj.종료일, proj.상태, bsTa.value]);
-    }, 1500);
+  const bsTa   = document.getElementById('brainstorm-ta');
+  const bsView = document.getElementById('bs-view');
+  const bsSave = document.getElementById('bs-save-btn');
+  const bsEdit = document.getElementById('bs-edit-btn');
+
+  bsEdit.addEventListener('click', () => {
+    bsTa.value           = proj.브레인스토밍 || '';
+    bsView.style.display = 'none';
+    bsEdit.style.display = 'none';
+    bsTa.style.display   = '';
+    bsSave.style.display = '';
+    bsTa.focus();
+  });
+
+  bsSave.addEventListener('click', async () => {
+    const val = bsTa.value;
+    proj.브레인스토밍 = val;
+    bsSave.disabled = true;
+    await sheetsUpdate('프로젝트', proj._row,
+      [proj.ID, proj.제목, proj.설명, proj.색상, proj.시작일, proj.종료일, proj.상태, val]);
+    bsSave.disabled      = false;
+    bsView.innerHTML     = val.replace(/\n/g, '<br>');
+    bsView.style.display = val ? '' : 'none';
+    bsEdit.style.display = val ? '' : 'none';
+    bsTa.style.display   = val ? 'none' : '';
+    bsSave.style.display = val ? 'none' : '';
+    showToast('저장됨');
   });
 }
 
