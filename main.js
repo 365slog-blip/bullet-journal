@@ -1650,8 +1650,25 @@ function openWritingForm(item) {
     const row = [title, document.getElementById('wf-sub').value, String(selRating),
       document.getElementById('wf-date').value, document.getElementById('wf-content').value, imgUrl];
     if (item) {
-      await sheetsUpdate(item._sheet, item._row, row);
-      Object.assign(item, { 제목:row[0], 서브:row[1], 별점:row[2], 날짜:row[3], 내용:row[4], 이미지:row[5] });
+      if (selCat === item._cat) {
+        // 같은 카테고리 — 기존 행 업데이트
+        await sheetsUpdate(item._sheet, item._row, row);
+        Object.assign(item, { 제목:row[0], 서브:row[1], 별점:row[2], 날짜:row[3], 내용:row[4], 이미지:row[5] });
+      } else {
+        // 카테고리 변경 — 구 시트에서 삭제 후 새 시트에 추가
+        const oldCat = item._cat;
+        await sheetsDelete(oldCat, item._row);
+        await sheetsAppend(selCat, row);
+        const wCols = ['제목','서브','별점','날짜','내용','이미지'];
+        const [oldRows, newRows] = await Promise.all([sheetsRead(oldCat), sheetsRead(selCat)]);
+        const oldParsed = parseRows(oldRows, wCols).map(w => ({ ...w, _sheet: oldCat, _cat: oldCat }));
+        const newParsed = parseRows(newRows, wCols).map(w => ({ ...w, _sheet: selCat, _cat: selCat }));
+        S.writings = [
+          ...S.writings.filter(w => w._cat !== oldCat && w._cat !== selCat),
+          ...oldParsed,
+          ...newParsed,
+        ].sort((a, b) => b.날짜.localeCompare(a.날짜));
+      }
     } else {
       await sheetsAppend(selCat, row);
       const newRows = await sheetsRead(selCat);
