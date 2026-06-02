@@ -138,7 +138,7 @@ async function loadData() {
     ...parseRows(webtoonRows, wCols).map(w => ({ ...w, _sheet: '웹툰웹소설', _cat: '웹툰웹소설' })),
   ].sort((a, b) => b.날짜.localeCompare(a.날짜));
 
-  S.subs = parseRows(subsRows, ['서비스명', '결제일', '금액', '카테고리', '출금은행']);
+  S.subs = parseRows(subsRows, ['서비스명', '결제일', '금액', '카테고리', '출금은행', '사진URL']);
 
   if (S.routineSettings.length === 0) await initDefaultRoutines();
 }
@@ -181,7 +181,8 @@ function renderCal() {
   const last     = new Date(y, m+1, 0);
   const startDow = first.getDay();
   const today    = todayStr();
-  const evtSet   = new Set(S.calEvents.map(e => e.날짜));
+  const evtSet     = new Set(S.calEvents.map(e => e.날짜));
+  const subDayNums = new Set(S.subs.map(s => +s.결제일));
 
   let html = '';
   for (let i = 0; i < startDow; i++) html += '<div class="cal-cell"></div>';
@@ -191,7 +192,10 @@ function renderCal() {
     const isSel   = ds === S.selDate;
     html += `<div class="cal-cell${isToday?' today':''}${isSel?' selected':''}" data-date="${ds}">
       <span class="cal-day-num">${d}</span>
-      ${evtSet.has(ds) ? '<i class="cal-dot"></i>' : ''}
+      <div class="cal-dots">
+        ${evtSet.has(ds) ? '<i class="cal-dot"></i>' : ''}
+        ${subDayNums.has(d) ? '<i class="cal-dot subs-dot"></i>' : ''}
+      </div>
     </div>`;
   }
 
@@ -221,9 +225,21 @@ function selectDate(ds) {
 }
 
 function renderCalEventPanel() {
-  const panel  = document.getElementById('cal-event-panel');
-  const events = S.calEvents.filter(e => e.날짜 === S.selDate);
+  const panel      = document.getElementById('cal-event-panel');
+  const events     = S.calEvents.filter(e => e.날짜 === S.selDate);
+  const selDay     = +S.selDate.split('-')[2];
+  const subsForDay = S.subs.filter(s => +s.결제일 === selDay);
   let html = `<div class="cal-event-title">${fmtKor(S.selDate)} 일정</div>`;
+
+  // 구독 결제일 (삭제 불가)
+  subsForDay.forEach(s => {
+    const amt = parseInt((String(s.금액 || '0')).replace(/[^0-9]/g, '')) || 0;
+    html += `<div class="cal-event-item cal-sub-event">
+      <span style="width:8px;height:8px;border-radius:50%;background:#e6b800;flex-shrink:0;display:inline-block"></span>
+      <span class="cal-event-text">💳 ${s.서비스명}${amt ? ' ' + amt.toLocaleString('ko-KR') + '원' : ''}</span>
+    </div>`;
+  });
+
   events.forEach(ev => {
     html += `<div class="cal-event-item" data-row="${ev._row}">
       <span class="cal-evt-dot" style="width:8px;height:8px;border-radius:50%;background:${ev.색상||'var(--accent)'};flex-shrink:0;display:inline-block"></span>
@@ -1753,12 +1769,12 @@ function renderStats() {
 
 // ── SUBSCRIPTION ──────────────────────────────────────
 function renderSubs() {
-  const today     = new Date();
-  const todayDay  = today.getDate();
+  const today    = new Date();
+  const todayDay = today.getDate();
   const y = today.getFullYear(), mo = today.getMonth();
-  const dim       = new Date(y, mo + 1, 0).getDate();
-  const cat       = S.subsCat || '전체';
-  const cats      = ['전체', 'OTT', '구독', '앱', '기타'];
+  const dim      = new Date(y, mo + 1, 0).getDate();
+  const cat      = S.subsCat || '전체';
+  const cats     = ['전체', 'OTT', '앱', '보험', '기타'];
 
   const fmtAmt = n => {
     const v = parseInt((String(n || '0')).replace(/[^0-9]/g, '')) || 0;
@@ -1766,12 +1782,20 @@ function renderSubs() {
   };
   const getAmt = s => parseInt((String(s.금액 || '0')).replace(/[^0-9]/g, '')) || 0;
 
+  const subsLogo = s => {
+    const initial = (s.서비스명 || '?').charAt(0);
+    return `<div class="subs-logo-wrap" data-initial="${initial}">
+      ${s.사진URL ? `<img src="${s.사진URL}" alt="${initial}" onerror="this.style.display='none'">` : ''}
+    </div>`;
+  };
+
   const allSorted = [...S.subs].sort((a, b) => +a.결제일 - +b.결제일);
   const filtered  = cat === '전체' ? allSorted : allSorted.filter(s => s.카테고리 === cat);
 
-  // Summary
-  const totalAmount = S.subs.reduce((sum, s) => sum + getAmt(s), 0);
-  const remaining   = S.subs.filter(s => +s.결제일 >= todayDay).length;
+  const totalAmount   = S.subs.reduce((sum, s) => sum + getAmt(s), 0);
+  const paid          = S.subs.filter(s => +s.결제일 < todayDay).length;
+  const remaining     = S.subs.filter(s => +s.결제일 >= todayDay).length;
+  const remainingAmt  = S.subs.filter(s => +s.결제일 >= todayDay).reduce((sum, s) => sum + getAmt(s), 0);
 
   let nextSub = null, minDiff = Infinity;
   S.subs.forEach(s => {
@@ -1780,13 +1804,7 @@ function renderSubs() {
     if (diff < minDiff) { minDiff = diff; nextSub = s; }
   });
 
-  // 7일 이내 임박
-  const upcoming = allSorted.filter(s => {
-    const diff = +s.결제일 - todayDay;
-    return diff >= 0 && diff <= 7;
-  });
-
-  // ── Summary cards
+  // ── 5 Summary cards
   document.getElementById('subs-summary').innerHTML = `
     <div class="subs-summary-grid">
       <div class="subs-card">
@@ -1794,16 +1812,28 @@ function renderSubs() {
         <div class="subs-card-value">${fmtAmt(totalAmount)}</div>
       </div>
       <div class="subs-card">
-        <div class="subs-card-label">이번 달 남은 결제</div>
+        <div class="subs-card-label">남은 결제</div>
         <div class="subs-card-value">${remaining}건</div>
+      </div>
+      <div class="subs-card">
+        <div class="subs-card-label">결제 완료</div>
+        <div class="subs-card-value subs-paid">${paid}건</div>
       </div>
       <div class="subs-card">
         <div class="subs-card-label">다음 결제</div>
         <div class="subs-card-value subs-next">${nextSub ? `D-${minDiff} <span class="subs-next-name">${nextSub.서비스명}</span>` : '-'}</div>
       </div>
+      <div class="subs-card">
+        <div class="subs-card-label">남은 결제 예정액</div>
+        <div class="subs-card-value">${fmtAmt(remainingAmt)}</div>
+      </div>
     </div>`;
 
-  // ── Upcoming section
+  // ── Upcoming section (7일 이내)
+  const upcoming = allSorted.filter(s => {
+    const diff = +s.결제일 - todayDay;
+    return diff >= 0 && diff <= 7;
+  });
   const upcomingEl = document.getElementById('subs-upcoming');
   if (upcoming.length) {
     upcomingEl.innerHTML = `
@@ -1813,6 +1843,7 @@ function renderSubs() {
           ${upcoming.map(s => {
             const diff = +s.결제일 - todayDay;
             return `<div class="subs-upcoming-item">
+              ${subsLogo(s)}
               <span class="subs-dday">${diff === 0 ? 'D-DAY' : 'D-' + diff}</span>
               <span class="subs-uname">${s.서비스명}</span>
               <span class="subs-uamt">${fmtAmt(getAmt(s))}</span>
@@ -1842,14 +1873,16 @@ function renderSubs() {
       <div class="subs-table-wrap">
         <table class="subs-table">
           <thead><tr>
+            <th style="width:44px"></th>
             <th>서비스명</th><th>결제일</th><th>금액</th><th>카테고리</th><th>출금은행</th><th></th>
           </tr></thead>
           <tbody>
             ${filtered.map(s => {
-              const day = +s.결제일;
+              const day        = +s.결제일;
               const isPast     = day < todayDay;
               const isUpcoming = !isPast && (day - todayDay) <= 7;
               return `<tr class="${isPast ? 'subs-past' : isUpcoming ? 'subs-near' : ''}" data-row="${s._row}">
+                <td>${subsLogo(s)}</td>
                 <td class="subs-name">${s.서비스명}</td>
                 <td>${day}일</td>
                 <td>${fmtAmt(getAmt(s))}</td>
@@ -1866,7 +1899,6 @@ function renderSubs() {
       </div>` : '<p class="empty-state"><span class="empty-icon">💳</span><br>구독 항목이 없습니다</p>'}
     </div>`;
 
-  // Events
   listEl.querySelectorAll('.cat-chip').forEach(b =>
     b.addEventListener('click', () => { S.subsCat = b.dataset.cat; renderSubs(); })
   );
@@ -1885,6 +1917,7 @@ function renderSubs() {
         S.subs = S.subs.filter(s => s._row !== row);
         S.subs.forEach(s => { if (s._row > row) s._row--; });
         renderSubs();
+        if (S.tab === 'home') renderCal();
         showToast('삭제됨');
       });
     })
@@ -1893,7 +1926,7 @@ function renderSubs() {
 
 function openSubsForm(sub) {
   const isEdit = !!sub;
-  const cats   = ['OTT', '구독', '앱', '기타'];
+  const cats   = ['OTT', '앱', '보험', '기타'];
   const el     = document.createElement('div');
   el.className = 'proj-form-overlay';
   el.innerHTML = `
@@ -1929,6 +1962,10 @@ function openSubsForm(sub) {
             <input class="form-input" id="sf-bank" placeholder="카카오뱅크" value="${isEdit ? (sub.출금은행 || '') : ''}">
           </div>
         </div>
+        <div>
+          <label style="font-size:.72rem;color:var(--text3)">로고 이미지 URL</label>
+          <input class="form-input" id="sf-img" placeholder="https://..." value="${isEdit ? (sub.사진URL || '') : ''}">
+        </div>
         <button class="btn-primary" id="sf-save" style="margin-top:4px">${isEdit ? '수정' : '추가'}</button>
       </div>
     </div>`;
@@ -1938,23 +1975,26 @@ function openSubsForm(sub) {
   el.addEventListener('click', e => { if (e.target === el) el.remove(); });
 
   el.querySelector('#sf-save').onclick = async () => {
-    const name = el.querySelector('#sf-name').value.trim();
-    const day  = el.querySelector('#sf-day').value.trim();
-    const amt  = el.querySelector('#sf-amt').value.trim();
-    const cat  = el.querySelector('#sf-cat').value;
-    const bank = el.querySelector('#sf-bank').value.trim();
+    const name   = el.querySelector('#sf-name').value.trim();
+    const day    = el.querySelector('#sf-day').value.trim();
+    const amt    = el.querySelector('#sf-amt').value.trim();
+    const cat    = el.querySelector('#sf-cat').value;
+    const bank   = el.querySelector('#sf-bank').value.trim();
+    const imgUrl = el.querySelector('#sf-img').value.trim();
     if (!name || !day) { showToast('서비스명과 결제일은 필수입니다', true); return; }
-    const row = [name, day, amt, cat, bank];
+    const row = [name, day, amt, cat, bank, imgUrl];
     if (isEdit) {
-      sub.서비스명 = name; sub.결제일 = day; sub.금액 = amt; sub.카테고리 = cat; sub.출금은행 = bank;
+      sub.서비스명 = name; sub.결제일 = day; sub.금액 = amt;
+      sub.카테고리 = cat; sub.출금은행 = bank; sub.사진URL = imgUrl;
       await sheetsUpdate('구독관리', sub._row, row);
     } else {
       await sheetsAppend('구독관리', row);
       const rows = await sheetsRead('구독관리');
-      S.subs = parseRows(rows, ['서비스명', '결제일', '금액', '카테고리', '출금은행']);
+      S.subs = parseRows(rows, ['서비스명', '결제일', '금액', '카테고리', '출금은행', '사진URL']);
     }
     el.remove();
     renderSubs();
+    if (S.tab === 'home') renderCal();
     showToast(isEdit ? '수정됨' : '추가됨');
   };
 }
