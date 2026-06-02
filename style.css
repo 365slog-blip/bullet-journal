@@ -419,6 +419,11 @@ h1,h2,h3,h4{font-family:var(--font-b);}
   resize:vertical;line-height:1.6;
 }
 .diary-textarea:focus{border-color:var(--accent);}
+.diary-view{
+  font-size:.78rem;line-height:1.7;color:var(--text);
+  background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+  padding:8px;min-height:60px;white-space:pre-wrap;word-break:break-word;flex:1;
+}
 .diary-save-btn{
   width:100%;padding:5px 0;font-size:.75rem;font-weight:600;
   background:var(--accent);color:#fff;border-radius:6px;
@@ -426,6 +431,12 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 }
 .diary-save-btn:disabled{opacity:.65;cursor:default;}
 [data-theme="dark"] .diary-save-btn{color:var(--bg);}
+.diary-edit-btn{
+  width:100%;padding:5px 0;font-size:.75rem;font-weight:600;
+  background:var(--bg3);color:var(--text2);border-radius:6px;
+  cursor:pointer;border:1px solid var(--border);flex-shrink:0;
+}
+.diary-edit-btn:hover{background:var(--border);}
 
 /* ── PROJECT TAB ────────────────────────────────────────── */
 .tab-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}

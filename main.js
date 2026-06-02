@@ -688,6 +688,7 @@ function renderDiaryWeekGrid() {
     const dateLabel = `${d.getMonth()+1}/${d.getDate()} (${dowLabels[i]})`;
 
     const scoreEmojis = {'':'- 점수 -','1':'😢 힘듦','2':'😕 별로','3':'😐 보통','4':'🙂 좋음','5':'😄 최고'};
+    const hasContent = !!content;
     html += `<div class="diary-day-col${ds===today?' today':''}" data-date="${ds}">
       <div class="diary-day-head" style="margin-bottom:8px">
         <span style="font-size:.85rem;font-weight:600;color:var(--accent)">${dateLabel}</span>
@@ -697,15 +698,42 @@ function renderDiaryWeekGrid() {
           ${Object.entries(scoreEmojis).map(([v,l])=>`<option value="${v}"${score===v?' selected':''}>${l}</option>`).join('')}
         </select>
       </div>
-      <textarea class="diary-textarea" data-date="${ds}" placeholder="오늘 하루...">${content}</textarea>
-      <button class="diary-save-btn" data-date="${ds}">저장</button>
+      <div class="diary-view${hasContent ? '' : ' hidden'}">${content.replace(/\n/g,'<br>')}</div>
+      <textarea class="diary-textarea${hasContent ? ' hidden' : ''}" data-date="${ds}" placeholder="오늘 하루...">${content}</textarea>
+      <button class="diary-edit-btn${hasContent ? '' : ' hidden'}" data-date="${ds}">수정</button>
+      <button class="diary-save-btn${hasContent ? ' hidden' : ''}" data-date="${ds}">저장</button>
     </div>`;
   }
   grid.innerHTML = html;
 
+  const switchToView = (col, text) => {
+    const view    = col.querySelector('.diary-view');
+    const ta      = col.querySelector('.diary-textarea');
+    const saveBtn = col.querySelector('.diary-save-btn');
+    const editBtn = col.querySelector('.diary-edit-btn');
+    view.innerHTML = text.replace(/\n/g, '<br>');
+    view.classList.toggle('hidden', !text);
+    editBtn.classList.toggle('hidden', !text);
+    ta.classList.add('hidden');
+    saveBtn.classList.add('hidden');
+  };
+
+  const switchToEdit = (col, text) => {
+    const view    = col.querySelector('.diary-view');
+    const ta      = col.querySelector('.diary-textarea');
+    const saveBtn = col.querySelector('.diary-save-btn');
+    const editBtn = col.querySelector('.diary-edit-btn');
+    ta.value = text;
+    view.classList.add('hidden');
+    editBtn.classList.add('hidden');
+    ta.classList.remove('hidden');
+    saveBtn.classList.remove('hidden');
+    ta.focus();
+  };
+
   const save = async ds => {
     const col   = grid.querySelector(`.diary-day-col[data-date="${ds}"]`);
-    const score = (col.querySelector('.diary-score-sel') || col.querySelector('.diary-score-inp') || {value:''}).value;
+    const score = col.querySelector('.diary-score-sel').value;
     const text  = col.querySelector('.diary-textarea').value;
     const entry = S.diaryEntries.find(e => e.날짜 === ds);
     if (entry) {
@@ -717,6 +745,7 @@ function renderDiaryWeekGrid() {
       S.diaryEntries = parseRows(rows, ['날짜', '점수', '_x', '내용']);
       renderDiaryMiniCal();
     }
+    switchToView(col, text);
   };
 
   grid.querySelectorAll('.diary-save-btn').forEach(btn =>
@@ -725,10 +754,18 @@ function renderDiaryWeekGrid() {
       btn.textContent = '저장 중...';
       btn.disabled = true;
       await save(ds);
-      btn.textContent = '저장됨 ✓';
-      setTimeout(() => { btn.textContent = '저장'; btn.disabled = false; }, 1500);
     })
   );
+
+  grid.querySelectorAll('.diary-edit-btn').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const ds    = btn.dataset.date;
+      const col   = grid.querySelector(`.diary-day-col[data-date="${ds}"]`);
+      const entry = S.diaryEntries.find(e => e.날짜 === ds) || {};
+      switchToEdit(col, entry.내용 || '');
+    })
+  );
+
   grid.querySelectorAll('.diary-score-sel').forEach(sel =>
     sel.addEventListener('change', () => save(sel.dataset.date))
   );
