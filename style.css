@@ -167,9 +167,12 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 /* ── PULL TO REFRESH ─────────────────────────────────────── */
 .ptr-indicator{
   height:0;overflow:hidden;opacity:0;
-  display:flex;align-items:center;justify-content:center;
+  display:none;align-items:center;justify-content:center;
   background:var(--aclt);transition:height .1s ease,opacity .1s ease;
   flex-shrink:0;
+}
+@media(max-width:768px){
+  .ptr-indicator{display:flex;}
 }
 .ptr-text{
   font-size:.8rem;font-weight:600;color:var(--accent);
