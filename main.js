@@ -61,6 +61,7 @@ function switchTab(tab) {
     case 'language': renderLangBody(); break;
     case 'writing':  renderWritingGallery(); break;
     case 'stats':    renderStats(); break;
+    case 'subs':     renderSubs(); break;
   }
 }
 
@@ -104,6 +105,7 @@ async function loadData() {
     diaryRows, weeklyRows, calRows,
     projRows, taskRows, wordRows, duoRows,
     booksRows, moviesRows, dramasRows, webtoonRows,
+    subsRows,
   ] = await Promise.all([
     sheetsRead('투두'),       sheetsRead('루틴설정'), sheetsRead('루틴기록'),
     sheetsRead('하루일기'),   sheetsRead('주간계획'), sheetsRead('월간스케줄'),
@@ -111,6 +113,7 @@ async function loadData() {
     sheetsRead('단어장'),     sheetsRead('듀오링고'),
     sheetsRead('독서'),       sheetsRead('영화'),
     sheetsRead('드라마'),     sheetsRead('웹툰웹소설'),
+    sheetsRead('구독관리'),
   ]);
 
   const todos    = parseRows(todoRows, ['날짜', '항목', '타입', '완료']);
@@ -135,6 +138,8 @@ async function loadData() {
     ...parseRows(dramasRows,  wCols).map(w => ({ ...w, _sheet: '드라마',     _cat: '드라마' })),
     ...parseRows(webtoonRows, wCols).map(w => ({ ...w, _sheet: '웹툰웹소설', _cat: '웹툰웹소설' })),
   ].sort((a, b) => b.날짜.localeCompare(a.날짜));
+
+  S.subs = parseRows(subsRows, ['서비스명', '결제일', '금액', '카테고리', '출금은행']);
 
   if (S.routineSettings.length === 0) await initDefaultRoutines();
 }
@@ -1745,6 +1750,214 @@ function renderStats() {
       <text x="${W-P}" y="${H-4}" font-size="8" text-anchor="end" fill="var(--text3)">${dim}일</text>
     </svg>`;
   }
+}
+
+// ── SUBSCRIPTION ──────────────────────────────────────
+function renderSubs() {
+  const today     = new Date();
+  const todayDay  = today.getDate();
+  const y = today.getFullYear(), mo = today.getMonth();
+  const dim       = new Date(y, mo + 1, 0).getDate();
+  const cat       = S.subsCat || '전체';
+  const cats      = ['전체', 'OTT', '구독', '앱', '기타'];
+
+  const fmtAmt = n => {
+    const v = parseInt((String(n || '0')).replace(/[^0-9]/g, '')) || 0;
+    return v.toLocaleString('ko-KR') + '원';
+  };
+  const getAmt = s => parseInt((String(s.금액 || '0')).replace(/[^0-9]/g, '')) || 0;
+
+  const allSorted = [...S.subs].sort((a, b) => +a.결제일 - +b.결제일);
+  const filtered  = cat === '전체' ? allSorted : allSorted.filter(s => s.카테고리 === cat);
+
+  // Summary
+  const totalAmount = S.subs.reduce((sum, s) => sum + getAmt(s), 0);
+  const remaining   = S.subs.filter(s => +s.결제일 >= todayDay).length;
+
+  let nextSub = null, minDiff = Infinity;
+  S.subs.forEach(s => {
+    let diff = +s.결제일 - todayDay;
+    if (diff < 0) diff += dim;
+    if (diff < minDiff) { minDiff = diff; nextSub = s; }
+  });
+
+  // 7일 이내 임박
+  const upcoming = allSorted.filter(s => {
+    const diff = +s.결제일 - todayDay;
+    return diff >= 0 && diff <= 7;
+  });
+
+  // ── Summary cards
+  document.getElementById('subs-summary').innerHTML = `
+    <div class="subs-summary-grid">
+      <div class="subs-card">
+        <div class="subs-card-label">이번 달 총 구독료</div>
+        <div class="subs-card-value">${fmtAmt(totalAmount)}</div>
+      </div>
+      <div class="subs-card">
+        <div class="subs-card-label">이번 달 남은 결제</div>
+        <div class="subs-card-value">${remaining}건</div>
+      </div>
+      <div class="subs-card">
+        <div class="subs-card-label">다음 결제</div>
+        <div class="subs-card-value subs-next">${nextSub ? `D-${minDiff} <span class="subs-next-name">${nextSub.서비스명}</span>` : '-'}</div>
+      </div>
+    </div>`;
+
+  // ── Upcoming section
+  const upcomingEl = document.getElementById('subs-upcoming');
+  if (upcoming.length) {
+    upcomingEl.innerHTML = `
+      <div class="subs-section">
+        <div class="subs-section-title">결제 임박 (7일 이내)</div>
+        <div class="subs-upcoming-list">
+          ${upcoming.map(s => {
+            const diff = +s.결제일 - todayDay;
+            return `<div class="subs-upcoming-item">
+              <span class="subs-dday">${diff === 0 ? 'D-DAY' : 'D-' + diff}</span>
+              <span class="subs-uname">${s.서비스명}</span>
+              <span class="subs-uamt">${fmtAmt(getAmt(s))}</span>
+              <span class="subs-udate">${s.결제일}일</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  } else {
+    upcomingEl.innerHTML = '';
+  }
+
+  // ── Subscription list
+  const listEl = document.getElementById('subs-list-section');
+  listEl.innerHTML = `
+    <div class="subs-section">
+      <div class="subs-list-head">
+        <div class="subs-section-title">구독 목록</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="cat-chips">
+            ${cats.map(c => `<button class="cat-chip${c === cat ? ' active' : ''}" data-cat="${c}">${c}</button>`).join('')}
+          </div>
+          <button class="btn-primary" id="subs-add-btn">+ 추가</button>
+        </div>
+      </div>
+      ${filtered.length ? `
+      <div class="subs-table-wrap">
+        <table class="subs-table">
+          <thead><tr>
+            <th>서비스명</th><th>결제일</th><th>금액</th><th>카테고리</th><th>출금은행</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${filtered.map(s => {
+              const day = +s.결제일;
+              const isPast     = day < todayDay;
+              const isUpcoming = !isPast && (day - todayDay) <= 7;
+              return `<tr class="${isPast ? 'subs-past' : isUpcoming ? 'subs-near' : ''}" data-row="${s._row}">
+                <td class="subs-name">${s.서비스명}</td>
+                <td>${day}일</td>
+                <td>${fmtAmt(getAmt(s))}</td>
+                <td><span class="subs-cat-badge">${s.카테고리 || '-'}</span></td>
+                <td class="subs-bank">${s.출금은행 || '-'}</td>
+                <td class="subs-actions">
+                  <button class="task-edit-btn subs-edit" data-row="${s._row}">✎</button>
+                  <button class="task-edit-btn subs-del" data-row="${s._row}" style="color:var(--danger)">✕</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>` : '<p class="empty-state"><span class="empty-icon">💳</span><br>구독 항목이 없습니다</p>'}
+    </div>`;
+
+  // Events
+  listEl.querySelectorAll('.cat-chip').forEach(b =>
+    b.addEventListener('click', () => { S.subsCat = b.dataset.cat; renderSubs(); })
+  );
+  document.getElementById('subs-add-btn').addEventListener('click', () => openSubsForm(null));
+  listEl.querySelectorAll('.subs-edit').forEach(b =>
+    b.addEventListener('click', () => {
+      const sub = S.subs.find(s => s._row === +b.dataset.row);
+      if (sub) openSubsForm(sub);
+    })
+  );
+  listEl.querySelectorAll('.subs-del').forEach(b =>
+    b.addEventListener('click', () => {
+      const row = +b.dataset.row;
+      confirmAction('구독을 삭제하시겠습니까?', async () => {
+        await sheetsDelete('구독관리', row);
+        S.subs = S.subs.filter(s => s._row !== row);
+        S.subs.forEach(s => { if (s._row > row) s._row--; });
+        renderSubs();
+        showToast('삭제됨');
+      });
+    })
+  );
+}
+
+function openSubsForm(sub) {
+  const isEdit = !!sub;
+  const cats   = ['OTT', '구독', '앱', '기타'];
+  const el     = document.createElement('div');
+  el.className = 'proj-form-overlay';
+  el.innerHTML = `
+    <div class="proj-form-modal">
+      <div class="proj-form-head">
+        <h3>${isEdit ? '구독 수정' : '구독 추가'}</h3>
+        <button class="icon-btn" id="sf-close">✕</button>
+      </div>
+      <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label style="font-size:.72rem;color:var(--text3)">서비스명 *</label>
+          <input class="form-input" id="sf-name" placeholder="넷플릭스" value="${isEdit ? sub.서비스명 : ''}">
+        </div>
+        <div class="form-row">
+          <div>
+            <label style="font-size:.72rem;color:var(--text3)">결제일 (1~31) *</label>
+            <input class="form-input" id="sf-day" type="number" min="1" max="31" placeholder="15" value="${isEdit ? sub.결제일 : ''}">
+          </div>
+          <div>
+            <label style="font-size:.72rem;color:var(--text3)">금액 (원)</label>
+            <input class="form-input" id="sf-amt" type="number" placeholder="13500" value="${isEdit ? (String(sub.금액 || '')).replace(/[^0-9]/g, '') : ''}">
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label style="font-size:.72rem;color:var(--text3)">카테고리</label>
+            <select class="form-input" id="sf-cat">
+              ${cats.map(c => `<option value="${c}"${isEdit && sub.카테고리 === c ? ' selected' : ''}>${c}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label style="font-size:.72rem;color:var(--text3)">출금은행</label>
+            <input class="form-input" id="sf-bank" placeholder="카카오뱅크" value="${isEdit ? (sub.출금은행 || '') : ''}">
+          </div>
+        </div>
+        <button class="btn-primary" id="sf-save" style="margin-top:4px">${isEdit ? '수정' : '추가'}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+
+  el.querySelector('#sf-close').onclick = () => el.remove();
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+
+  el.querySelector('#sf-save').onclick = async () => {
+    const name = el.querySelector('#sf-name').value.trim();
+    const day  = el.querySelector('#sf-day').value.trim();
+    const amt  = el.querySelector('#sf-amt').value.trim();
+    const cat  = el.querySelector('#sf-cat').value;
+    const bank = el.querySelector('#sf-bank').value.trim();
+    if (!name || !day) { showToast('서비스명과 결제일은 필수입니다', true); return; }
+    const row = [name, day, amt, cat, bank];
+    if (isEdit) {
+      sub.서비스명 = name; sub.결제일 = day; sub.금액 = amt; sub.카테고리 = cat; sub.출금은행 = bank;
+      await sheetsUpdate('구독관리', sub._row, row);
+    } else {
+      await sheetsAppend('구독관리', row);
+      const rows = await sheetsRead('구독관리');
+      S.subs = parseRows(rows, ['서비스명', '결제일', '금액', '카테고리', '출금은행']);
+    }
+    el.remove();
+    renderSubs();
+    showToast(isEdit ? '수정됨' : '추가됨');
+  };
 }
 
 // ── BOOT ──────────────────────────────────────────────

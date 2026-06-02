@@ -1000,3 +1000,58 @@ h1,h2,h3,h4{font-family:var(--font-b);}
   color:var(--text);cursor:pointer;
 }
 .diary-score-sel:focus{border-color:var(--accent);outline:none;}
+
+/* ── SUBSCRIPTION TAB ────────────────────────────────────── */
+.subs-wrap{max-width:960px;}
+.subs-summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+.subs-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 18px;
+}
+.subs-card-label{font-size:.72rem;color:var(--text3);margin-bottom:6px;}
+.subs-card-value{font-size:1.15rem;font-weight:700;color:var(--accent);}
+.subs-next-name{font-size:.85rem;font-weight:400;color:var(--text2);}
+.subs-section{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:16px;margin-bottom:14px;
+}
+.subs-section-title{font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:10px;}
+.subs-list-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+/* Upcoming */
+.subs-upcoming-list{display:flex;flex-direction:column;gap:6px;}
+.subs-upcoming-item{
+  display:flex;align-items:center;gap:10px;
+  background:#fde8e8;border-radius:8px;padding:8px 14px;
+}
+[data-theme="dark"] .subs-upcoming-item{background:#3a1010;}
+.subs-dday{font-size:.78rem;font-weight:700;color:#c0392b;min-width:44px;flex-shrink:0;}
+[data-theme="dark"] .subs-dday{color:#e07070;}
+.subs-uname{font-size:.85rem;font-weight:600;flex:1;}
+.subs-uamt{font-size:.85rem;color:var(--accent);font-weight:600;}
+.subs-udate{font-size:.75rem;color:var(--text3);flex-shrink:0;}
+/* Table */
+.subs-table-wrap{overflow-x:auto;}
+.subs-table{width:100%;border-collapse:collapse;font-size:.84rem;}
+.subs-table th{
+  font-size:.72rem;color:var(--text3);font-weight:500;
+  text-align:left;padding:6px 10px;border-bottom:2px solid var(--border);
+  white-space:nowrap;
+}
+.subs-table td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.subs-table tr:last-child td{border-bottom:none;}
+.subs-table tr.subs-past td{opacity:.4;}
+.subs-table tr.subs-near td{color:var(--accent);}
+.subs-table tr.subs-near .subs-name{font-weight:700;}
+.subs-name{font-weight:600;}
+.subs-bank{color:var(--text3);font-size:.78rem;}
+.subs-cat-badge{
+  font-size:.68rem;background:var(--bg2);border-radius:4px;
+  padding:2px 7px;color:var(--text2);white-space:nowrap;
+}
+.subs-actions{display:flex;gap:2px;justify-content:flex-end;opacity:0;transition:opacity .15s;}
+.subs-table tr:hover .subs-actions{opacity:1;}
+@media(max-width:600px){
+  .subs-summary-grid{grid-template-columns:1fr 1fr;}
+  .subs-table th:nth-child(4),.subs-table td:nth-child(4),
+  .subs-table th:nth-child(5),.subs-table td:nth-child(5){display:none;}
+}

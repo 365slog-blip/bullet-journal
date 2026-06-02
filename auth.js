@@ -60,6 +60,8 @@ const S = {
   // stats
   statsYear:    new Date().getFullYear(),
   statsMonth:   new Date().getMonth(),
+  // subs
+  subsCat:      '전체',
   // data
   calEvents:       [],
   routineSettings: [],
@@ -73,6 +75,7 @@ const S = {
   words:           [],
   duolingo:        [],
   writings:        [],
+  subs:            [],
 };
 
 // ── GOOGLE OAUTH (redirect implicit flow) ─────────────
