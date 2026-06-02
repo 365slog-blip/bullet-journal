@@ -1932,9 +1932,11 @@ function renderSubs() {
                 <td>${fmtAmt(getAmt(s))}</td>
                 <td><span class="subs-cat-badge">${s.카테고리 || '-'}</span></td>
                 <td class="subs-bank">${s.출금은행 || '-'}</td>
-                <td class="subs-actions">
-                  <button class="task-edit-btn subs-edit" data-row="${s._row}">✎</button>
-                  <button class="task-edit-btn subs-del" data-row="${s._row}" style="color:var(--danger)">✕</button>
+                <td>
+                  <div class="subs-actions">
+                    <button class="task-edit-btn subs-edit" data-row="${s._row}">✎</button>
+                    <button class="task-edit-btn subs-del" data-row="${s._row}" style="color:var(--danger)">✕</button>
+                  </div>
                 </td>
               </tr>`;
             }).join('')}
