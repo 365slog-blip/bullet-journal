@@ -1058,6 +1058,18 @@ h1,h2,h3,h4{font-family:var(--font-b);}
   width:36px;height:36px;object-fit:cover;
   position:absolute;inset:0;border-radius:8px;
 }
+/* 사진 업로드 영역 */
+.sf-img-area{display:flex;align-items:center;gap:10px;margin-top:4px;}
+.sf-img-preview{
+  width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0;
+}
+.sf-img-pick-btn{
+  padding:6px 12px;font-size:.78rem;border-radius:6px;
+  border:1px dashed var(--border);color:var(--text2);
+  background:var(--bg2);cursor:pointer;white-space:nowrap;
+}
+.sf-img-pick-btn:hover{border-color:var(--accent);color:var(--accent);}
+.sf-img-pick-btn:disabled{opacity:.6;cursor:default;}
 .subs-section{
   background:var(--card);border:1px solid var(--border);
   border-radius:var(--radius);padding:16px;margin-bottom:14px;
@@ -1097,6 +1109,8 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 }
 .subs-actions{display:flex;gap:2px;justify-content:flex-end;opacity:0;transition:opacity .15s;}
 .subs-table tr:hover .subs-actions{opacity:1;}
+/* task-edit-btn 자체 opacity:0 을 subs 내부에서 무효화 */
+.subs-actions .task-edit-btn{opacity:1;}
 @media(max-width:900px){
   .subs-summary-grid{grid-template-columns:repeat(3,1fr);}
 }

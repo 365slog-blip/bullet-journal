@@ -1963,29 +1963,62 @@ function openSubsForm(sub) {
           </div>
         </div>
         <div>
-          <label style="font-size:.72rem;color:var(--text3)">로고 이미지 URL</label>
-          <input class="form-input" id="sf-img" placeholder="https://..." value="${isEdit ? (sub.사진URL || '') : ''}">
+          <label style="font-size:.72rem;color:var(--text3)">로고 사진</label>
+          <div id="sf-img-area" class="sf-img-area"></div>
+          <input type="file" id="sf-img-file" accept="image/*" style="display:none">
         </div>
         <button class="btn-primary" id="sf-save" style="margin-top:4px">${isEdit ? '수정' : '추가'}</button>
       </div>
     </div>`;
   document.body.appendChild(el);
 
+  // 사진 업로드 상태
+  let sfImgUrl = isEdit ? (sub.사진URL || '') : '';
+
+  function renderImgArea() {
+    const area = el.querySelector('#sf-img-area');
+    if (sfImgUrl) {
+      area.innerHTML = `
+        <img src="${sfImgUrl}" class="sf-img-preview" alt="로고">
+        <button id="sf-img-remove" class="sf-img-pick-btn">✕ 삭제</button>`;
+      area.querySelector('#sf-img-remove').onclick = () => { sfImgUrl = ''; renderImgArea(); };
+    } else {
+      area.innerHTML = `<button id="sf-img-pick" class="sf-img-pick-btn">+ 로고 사진 추가</button>`;
+      area.querySelector('#sf-img-pick').onclick = () => el.querySelector('#sf-img-file').click();
+    }
+  }
+  renderImgArea();
+
+  el.querySelector('#sf-img-file').onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const area = el.querySelector('#sf-img-area');
+    area.innerHTML = `<button class="sf-img-pick-btn" disabled>업로드 중...</button>`;
+    try {
+      sfImgUrl = await uploadToDrive(file);
+      renderImgArea();
+    } catch {
+      showToast('업로드 실패', true);
+      sfImgUrl = '';
+      renderImgArea();
+    }
+    e.target.value = '';
+  };
+
   el.querySelector('#sf-close').onclick = () => el.remove();
   el.addEventListener('click', e => { if (e.target === el) el.remove(); });
 
   el.querySelector('#sf-save').onclick = async () => {
-    const name   = el.querySelector('#sf-name').value.trim();
-    const day    = el.querySelector('#sf-day').value.trim();
-    const amt    = el.querySelector('#sf-amt').value.trim();
-    const cat    = el.querySelector('#sf-cat').value;
-    const bank   = el.querySelector('#sf-bank').value.trim();
-    const imgUrl = el.querySelector('#sf-img').value.trim();
+    const name = el.querySelector('#sf-name').value.trim();
+    const day  = el.querySelector('#sf-day').value.trim();
+    const amt  = el.querySelector('#sf-amt').value.trim();
+    const cat  = el.querySelector('#sf-cat').value;
+    const bank = el.querySelector('#sf-bank').value.trim();
     if (!name || !day) { showToast('서비스명과 결제일은 필수입니다', true); return; }
-    const row = [name, day, amt, cat, bank, imgUrl];
+    const row = [name, day, amt, cat, bank, sfImgUrl];
     if (isEdit) {
       sub.서비스명 = name; sub.결제일 = day; sub.금액 = amt;
-      sub.카테고리 = cat; sub.출금은행 = bank; sub.사진URL = imgUrl;
+      sub.카테고리 = cat; sub.출금은행 = bank; sub.사진URL = sfImgUrl;
       await sheetsUpdate('구독관리', sub._row, row);
     } else {
       await sheetsAppend('구독관리', row);
