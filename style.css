@@ -940,7 +940,7 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 /* ── STATS TOP TWO-COLUMN ────────────────────────────────── */
 .stats-top-grid{
   display:grid;
-  grid-template-columns:1fr 340px;
+  grid-template-columns:3fr 2fr;
   gap:14px;
   align-items:stretch;
   margin-bottom:16px;
@@ -958,26 +958,27 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 .stat-grid-header{margin-bottom:4px;}
 .stat-grid-label{
   font-size:.7rem;color:var(--text2);
-  width:90px;min-width:90px;
-  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0;
+  width:180px;min-width:180px;
+  white-space:nowrap;flex-shrink:0;
+  text-align:right;
 }
 /* day grid — natural width so count sits right next to boxes */
-.stat-day-grid{display:flex;gap:1px;}
+.stat-day-grid{display:flex;gap:3px;}
 .stat-day-box{
-  width:11px;height:11px;flex-shrink:0;
+  width:14px;height:14px;flex-shrink:0;
   border-radius:2px;
   border:1px solid var(--border);background:var(--bg3);
 }
 .stat-day-box.done{background:var(--accent);border-color:var(--accent);}
 /* day number header */
 .stat-day-num{
-  width:11px;flex-shrink:0;
-  text-align:center;font-size:.44rem;color:var(--text3);line-height:1;
+  width:14px;flex-shrink:0;
+  text-align:center;font-size:.48rem;color:var(--text3);line-height:1;
 }
 .stat-grid-count{
   font-size:.7rem;color:var(--text3);
   white-space:nowrap;flex-shrink:0;
-  width:32px;text-align:right;
+  width:36px;text-align:right;
 }
 
 /* ── ROUTINE MODAL DRAG ──────────────────────────────────── */
