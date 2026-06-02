@@ -1058,6 +1058,7 @@ h1,h2,h3,h4{font-family:var(--font-b);}
   width:36px;height:36px;object-fit:cover;
   position:absolute;inset:0;border-radius:8px;
 }
+.subs-cycle-badge{font-size:.62rem;background:var(--bg3);border-radius:4px;padding:1px 5px;color:var(--text3);margin-left:4px;vertical-align:middle;}
 /* 사진 업로드 영역 */
 .sf-img-area{display:flex;align-items:center;gap:10px;margin-top:4px;}
 .sf-img-preview{

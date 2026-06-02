@@ -138,7 +138,7 @@ async function loadData() {
     ...parseRows(webtoonRows, wCols).map(w => ({ ...w, _sheet: '웹툰웹소설', _cat: '웹툰웹소설' })),
   ].sort((a, b) => b.날짜.localeCompare(a.날짜));
 
-  S.subs = parseRows(subsRows, ['서비스명', '결제일', '금액', '카테고리', '출금은행', '사진URL']);
+  S.subs = parseRows(subsRows, ['서비스명', '결제일', '금액', '카테고리', '출금은행', '사진URL', '결제주기', '결제월']);
 
   if (S.routineSettings.length === 0) await initDefaultRoutines();
 }
@@ -182,7 +182,12 @@ function renderCal() {
   const startDow = first.getDay();
   const today    = todayStr();
   const evtSet     = new Set(S.calEvents.map(e => e.날짜));
-  const subDayNums = new Set(S.subs.map(s => +s.결제일));
+  const subDayNums = new Set();
+  S.subs.forEach(s => {
+    const cycle = s.결제주기 || '월간';
+    if (cycle === '월간') subDayNums.add(+s.결제일);
+    else if (cycle === '연간' && +s.결제월 === m + 1) subDayNums.add(+s.결제일);
+  });
 
   let html = '';
   for (let i = 0; i < startDow; i++) html += '<div class="cal-cell"></div>';
@@ -228,7 +233,11 @@ function renderCalEventPanel() {
   const panel      = document.getElementById('cal-event-panel');
   const events     = S.calEvents.filter(e => e.날짜 === S.selDate);
   const selDay     = +S.selDate.split('-')[2];
-  const subsForDay = S.subs.filter(s => +s.결제일 === selDay);
+  const selMonth   = +S.selDate.split('-')[1];
+  const subsForDay = S.subs.filter(s => {
+    const cycle = s.결제주기 || '월간';
+    return +s.결제일 === selDay && (cycle === '월간' || +s.결제월 === selMonth);
+  });
   let html = `<div class="cal-event-title">${fmtKor(S.selDate)} 일정</div>`;
 
   // 구독 결제일 (삭제 불가)
@@ -1772,15 +1781,43 @@ function renderSubs() {
   const today    = new Date();
   const todayDay = today.getDate();
   const y = today.getFullYear(), mo = today.getMonth();
-  const dim      = new Date(y, mo + 1, 0).getDate();
-  const cat      = S.subsCat || '전체';
-  const cats     = ['전체', 'OTT', '앱', '보험', '기타'];
+  const todayDate = new Date(y, mo, todayDay);
+  const cat       = S.subsCat || '전체';
+  const cats      = ['전체', 'OTT', '앱', '보험', '기타'];
 
   const fmtAmt = n => {
     const v = parseInt((String(n || '0')).replace(/[^0-9]/g, '')) || 0;
     return v.toLocaleString('ko-KR') + '원';
   };
   const getAmt = s => parseInt((String(s.금액 || '0')).replace(/[^0-9]/g, '')) || 0;
+
+  // 다음 결제까지 남은 일수
+  const getSubDiff = s => {
+    const cycle = s.결제주기 || '월간';
+    if (cycle === '월간') {
+      const dim = new Date(y, mo + 1, 0).getDate();
+      let diff = +s.결제일 - todayDay;
+      if (diff < 0) diff += dim;
+      return diff;
+    }
+    // 연간: 올해 결제일, 지났으면 내년
+    const pm = (+s.결제월 || 1) - 1;
+    const pd = +s.결제일 || 1;
+    let pay = new Date(y, pm, pd);
+    if (pay < todayDate) pay = new Date(y + 1, pm, pd);
+    return Math.round((pay - todayDate) / 86400000);
+  };
+
+  // 이번 달 기준 결제 여부 (월간=항상, 연간=이번달인 경우만)
+  const isThisMonth = s => (s.결제주기 || '월간') === '월간' || +s.결제월 === mo + 1;
+
+  // 지난 결제 여부
+  const subIsPast = s => {
+    const cycle = s.결제주기 || '월간';
+    if (cycle === '월간') return +s.결제일 < todayDay;
+    const pm = (+s.결제월 || 1) - 1;
+    return new Date(y, pm, +s.결제일 || 1) < todayDate;
+  };
 
   const subsLogo = s => {
     const initial = (s.서비스명 || '?').charAt(0);
@@ -1789,19 +1826,20 @@ function renderSubs() {
     </div>`;
   };
 
-  const allSorted = [...S.subs].sort((a, b) => +a.결제일 - +b.결제일);
+  const allSorted = [...S.subs].sort((a, b) => getSubDiff(a) - getSubDiff(b));
   const filtered  = cat === '전체' ? allSorted : allSorted.filter(s => s.카테고리 === cat);
 
-  const totalAmount   = S.subs.reduce((sum, s) => sum + getAmt(s), 0);
-  const paid          = S.subs.filter(s => +s.결제일 < todayDay).length;
-  const remaining     = S.subs.filter(s => +s.결제일 >= todayDay).length;
-  const remainingAmt  = S.subs.filter(s => +s.결제일 >= todayDay).reduce((sum, s) => sum + getAmt(s), 0);
+  // 요약 카드 계산 (이번 달 관련 구독만)
+  const thisMonth    = S.subs.filter(isThisMonth);
+  const totalAmount  = thisMonth.reduce((sum, s) => sum + getAmt(s), 0);
+  const paid         = thisMonth.filter(subIsPast).length;
+  const remaining    = thisMonth.filter(s => !subIsPast(s)).length;
+  const remainingAmt = thisMonth.filter(s => !subIsPast(s)).reduce((sum, s) => sum + getAmt(s), 0);
 
   let nextSub = null, minDiff = Infinity;
   S.subs.forEach(s => {
-    let diff = +s.결제일 - todayDay;
-    if (diff < 0) diff += dim;
-    if (diff < minDiff) { minDiff = diff; nextSub = s; }
+    const d = getSubDiff(s);
+    if (d < minDiff) { minDiff = d; nextSub = s; }
   });
 
   // ── 5 Summary cards
@@ -1829,11 +1867,8 @@ function renderSubs() {
       </div>
     </div>`;
 
-  // ── Upcoming section (7일 이내)
-  const upcoming = allSorted.filter(s => {
-    const diff = +s.결제일 - todayDay;
-    return diff >= 0 && diff <= 7;
-  });
+  // ── Upcoming (7일 이내)
+  const upcoming   = allSorted.filter(s => { const d = getSubDiff(s); return d >= 0 && d <= 7; });
   const upcomingEl = document.getElementById('subs-upcoming');
   if (upcoming.length) {
     upcomingEl.innerHTML = `
@@ -1841,13 +1876,15 @@ function renderSubs() {
         <div class="subs-section-title">결제 임박 (7일 이내)</div>
         <div class="subs-upcoming-list">
           ${upcoming.map(s => {
-            const diff = +s.결제일 - todayDay;
+            const diff  = getSubDiff(s);
+            const cycle = s.결제주기 || '월간';
+            const dateLabel = cycle === '연간' ? `${s.결제월}월 ${s.결제일}일` : `${s.결제일}일`;
             return `<div class="subs-upcoming-item">
               ${subsLogo(s)}
               <span class="subs-dday">${diff === 0 ? 'D-DAY' : 'D-' + diff}</span>
               <span class="subs-uname">${s.서비스명}</span>
               <span class="subs-uamt">${fmtAmt(getAmt(s))}</span>
-              <span class="subs-udate">${s.결제일}일</span>
+              <span class="subs-udate">${dateLabel}</span>
             </div>`;
           }).join('')}
         </div>
@@ -1878,13 +1915,20 @@ function renderSubs() {
           </tr></thead>
           <tbody>
             ${filtered.map(s => {
-              const day        = +s.결제일;
-              const isPast     = day < todayDay;
-              const isUpcoming = !isPast && (day - todayDay) <= 7;
+              const cycle      = s.결제주기 || '월간';
+              const isPast     = subIsPast(s);
+              const diff       = getSubDiff(s);
+              const isUpcoming = !isPast && diff <= 7;
+              const dateLabel  = cycle === '연간'
+                ? `${s.결제월}월 ${s.결제일}일`
+                : `${+s.결제일}일`;
               return `<tr class="${isPast ? 'subs-past' : isUpcoming ? 'subs-near' : ''}" data-row="${s._row}">
                 <td>${subsLogo(s)}</td>
-                <td class="subs-name">${s.서비스명}</td>
-                <td>${day}일</td>
+                <td class="subs-name">
+                  ${s.서비스명}
+                  ${cycle === '연간' ? '<span class="subs-cycle-badge">연간</span>' : ''}
+                </td>
+                <td>${dateLabel}</td>
                 <td>${fmtAmt(getAmt(s))}</td>
                 <td><span class="subs-cat-badge">${s.카테고리 || '-'}</span></td>
                 <td class="subs-bank">${s.출금은행 || '-'}</td>
@@ -1925,11 +1969,13 @@ function renderSubs() {
 }
 
 function openSubsForm(sub) {
-  const isEdit = !!sub;
-  const cats   = ['OTT', '앱', '보험', '기타'];
-  const el     = document.createElement('div');
-  el.className = 'proj-form-overlay';
-  el.innerHTML = `
+  const isEdit  = !!sub;
+  const cats    = ['OTT', '앱', '보험', '기타'];
+  let sfCycle   = (isEdit && sub.결제주기) ? sub.결제주기 : '월간';
+  let sfMonth   = (isEdit && sub.결제월)   ? +sub.결제월  : new Date().getMonth() + 1;
+  const el      = document.createElement('div');
+  el.className  = 'proj-form-overlay';
+  el.innerHTML  = `
     <div class="proj-form-modal">
       <div class="proj-form-head">
         <h3>${isEdit ? '구독 수정' : '구독 추가'}</h3>
@@ -1963,6 +2009,19 @@ function openSubsForm(sub) {
           </div>
         </div>
         <div>
+          <label style="font-size:.72rem;color:var(--text3)">결제 주기</label>
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <button class="cat-chip sf-cycle-btn${sfCycle === '월간' ? ' active' : ''}" data-cycle="월간">월간</button>
+            <button class="cat-chip sf-cycle-btn${sfCycle === '연간' ? ' active' : ''}" data-cycle="연간">연간</button>
+          </div>
+        </div>
+        <div id="sf-month-wrap" style="display:${sfCycle === '연간' ? '' : 'none'}">
+          <label style="font-size:.72rem;color:var(--text3)">결제 월</label>
+          <select class="form-input" id="sf-month">
+            ${Array.from({length:12},(_,i)=>`<option value="${i+1}"${sfMonth===i+1?' selected':''}>${i+1}월</option>`).join('')}
+          </select>
+        </div>
+        <div>
           <label style="font-size:.72rem;color:var(--text3)">로고 사진</label>
           <div id="sf-img-area" class="sf-img-area"></div>
           <input type="file" id="sf-img-file" accept="image/*" style="display:none">
@@ -1971,6 +2030,15 @@ function openSubsForm(sub) {
       </div>
     </div>`;
   document.body.appendChild(el);
+
+  // 결제 주기 토글
+  el.querySelectorAll('.sf-cycle-btn').forEach(b =>
+    b.addEventListener('click', () => {
+      sfCycle = b.dataset.cycle;
+      el.querySelectorAll('.sf-cycle-btn').forEach(x => x.classList.toggle('active', x.dataset.cycle === sfCycle));
+      el.querySelector('#sf-month-wrap').style.display = sfCycle === '연간' ? '' : 'none';
+    })
+  );
 
   // 사진 업로드 상태
   let sfImgUrl = isEdit ? (sub.사진URL || '') : '';
@@ -2015,15 +2083,17 @@ function openSubsForm(sub) {
     const cat  = el.querySelector('#sf-cat').value;
     const bank = el.querySelector('#sf-bank').value.trim();
     if (!name || !day) { showToast('서비스명과 결제일은 필수입니다', true); return; }
-    const row = [name, day, amt, cat, bank, sfImgUrl];
+    const month = sfCycle === '연간' ? el.querySelector('#sf-month').value : '';
+    const row   = [name, day, amt, cat, bank, sfImgUrl, sfCycle, month];
     if (isEdit) {
       sub.서비스명 = name; sub.결제일 = day; sub.금액 = amt;
       sub.카테고리 = cat; sub.출금은행 = bank; sub.사진URL = sfImgUrl;
+      sub.결제주기 = sfCycle; sub.결제월 = month;
       await sheetsUpdate('구독관리', sub._row, row);
     } else {
       await sheetsAppend('구독관리', row);
       const rows = await sheetsRead('구독관리');
-      S.subs = parseRows(rows, ['서비스명', '결제일', '금액', '카테고리', '출금은행', '사진URL']);
+      S.subs = parseRows(rows, ['서비스명', '결제일', '금액', '카테고리', '출금은행', '사진URL', '결제주기', '결제월']);
     }
     el.remove();
     renderSubs();
