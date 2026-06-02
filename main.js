@@ -1733,23 +1733,25 @@ function renderStats() {
     <div class="stats-top-grid">
       <div class="stats-section" style="margin-bottom:0">
         <div class="stats-section-title">루틴 달성 현황</div>
-        <div class="stat-grid-row stat-grid-header">
-          <span class="stat-grid-label"></span>
-          <div class="stat-day-grid">${days.map((_, i) =>
-            `<div class="stat-day-num">${i+1}</div>`
-          ).join('')}</div>
-          <span class="stat-grid-count"></span>
+        <div class="stat-routine-scroll">
+          <div class="stat-grid-row stat-grid-header">
+            <span class="stat-grid-label"></span>
+            <div class="stat-day-grid">${days.map((_, i) =>
+              `<div class="stat-day-num">${i+1}</div>`
+            ).join('')}</div>
+            <span class="stat-grid-count"></span>
+          </div>
+          ${sorted.map(rt => {
+            const doneDays = new Set(recs.filter(r => r.루틴명===rt.루틴명 && r.완료==='TRUE').map(r => r.날짜));
+            const cnt = doneDays.size;
+            return `<div class="stat-grid-row">
+              <span class="stat-grid-label">${rt.루틴명}</span>
+              <div class="stat-day-grid">${days.map(ds =>
+                `<div class="stat-day-box${doneDays.has(ds)?' done':''}" title="${+ds.split('-')[2]}일"></div>`
+              ).join('')}</div><span class="stat-grid-count">${cnt}/${dim}</span>
+            </div>`;
+          }).join('') || '<p style="color:var(--text3);font-size:.82rem">루틴 없음</p>'}
         </div>
-        ${sorted.map(rt => {
-          const doneDays = new Set(recs.filter(r => r.루틴명===rt.루틴명 && r.완료==='TRUE').map(r => r.날짜));
-          const cnt = doneDays.size;
-          return `<div class="stat-grid-row">
-            <span class="stat-grid-label">${rt.루틴명}</span>
-            <div class="stat-day-grid">${days.map(ds =>
-              `<div class="stat-day-box${doneDays.has(ds)?' done':''}" title="${+ds.split('-')[2]}일"></div>`
-            ).join('')}</div><span class="stat-grid-count">${cnt}/${dim}</span>
-          </div>`;
-        }).join('') || '<p style="color:var(--text3);font-size:.82rem">루틴 없음</p>'}
       </div>
       <div class="stats-section" style="margin-bottom:0">
         <div class="stats-section-title" style="display:flex;align-items:center;justify-content:space-between">

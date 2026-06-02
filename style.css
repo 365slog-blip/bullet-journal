@@ -811,8 +811,10 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 @media(max-width:768px){
   /* stats: 루틴 위, 체중차트 아래로 */
   .stats-top-grid{grid-template-columns:1fr;}
-  .stats-top-grid > .stats-section:last-child{order:2;}
+  .stats-top-grid > .stats-section:last-child{order:2;display:block;}
   .stats-top-grid > .stats-section:first-child{order:1;}
+  /* 체중 차트: flex:1 해제 → SVG 자연 높이로 렌더 */
+  #weight-chart-wrap{flex:none;min-height:0;}
 }
 @media(max-width:600px){
   .home-layout{grid-template-columns:1fr;}
@@ -988,6 +990,7 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 }
 
 /* ── STATS DATE GRID ─────────────────────────────────────── */
+.stat-routine-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
 .stat-grid-row{display:flex;align-items:center;gap:6px;margin-bottom:9px;}
 .stat-grid-header{margin-bottom:4px;}
 .stat-grid-label{
