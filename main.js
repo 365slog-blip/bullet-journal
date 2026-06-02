@@ -506,6 +506,7 @@ function renderTodos(type) {
     <div class="inline-item${t.완료 === 'TRUE' ? ' done' : ''}">
       <input type="checkbox" class="inline-cb" data-row="${t._row}" ${t.완료 === 'TRUE' ? 'checked' : ''}>
       <span class="inline-text${t.완료 === 'TRUE' ? ' done' : ''}">${t.항목}</span>
+      <button class="inline-edit-btn" data-row="${t._row}">✎</button>
       <button class="inline-del" data-row="${t._row}">✕</button>
     </div>
   `).join('');
@@ -520,6 +521,35 @@ function renderTodos(type) {
       item.classList.toggle('done', cb.checked);
       item.querySelector('.inline-text').classList.toggle('done', cb.checked);
       await sheetsUpdate('투두', row, [todo.날짜, todo.항목, todo.타입, todo.완료]);
+    })
+  );
+
+  list.querySelectorAll('.inline-edit-btn').forEach(b =>
+    b.addEventListener('click', () => {
+      const row  = +b.dataset.row;
+      const todo = arr.find(t => t._row === row);
+      if (!todo) return;
+      const item = b.closest('.inline-item');
+      const span = item.querySelector('.inline-text');
+      const inp  = document.createElement('input');
+      inp.className = 'inline-edit-input';
+      inp.value = todo.항목;
+      span.replaceWith(inp);
+      inp.focus();
+      inp.select();
+      const commit = async () => {
+        const val = inp.value.trim();
+        if (val && val !== todo.항목) {
+          todo.항목 = val;
+          await sheetsUpdate('투두', row, [todo.날짜, val, todo.타입, todo.완료]);
+        }
+        renderTodos(type);
+      };
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); commit(); }
+        if (e.key === 'Escape') renderTodos(type);
+      });
+      inp.addEventListener('blur', commit);
     })
   );
 

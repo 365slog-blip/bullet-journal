@@ -329,8 +329,11 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 .inline-text{flex:1;font-size:.85rem;}
 .inline-text.done{text-decoration:line-through;color:var(--text3);}
 .inline-del{color:var(--text3);font-size:.75rem;opacity:0;transition:opacity .15s;}
-.inline-item:hover .inline-del{opacity:1;}
+.inline-edit-btn{color:var(--text3);font-size:.75rem;opacity:0;transition:opacity .15s;padding:1px 4px;border-radius:3px;}
+.inline-item:hover .inline-del,.inline-item:hover .inline-edit-btn{opacity:1;}
 .inline-del:hover{color:var(--danger);}
+.inline-edit-btn:hover{color:var(--accent);}
+.inline-edit-input{flex:1;font-size:.85rem;background:var(--bg2);border:1px solid var(--accent);border-radius:4px;padding:1px 6px;color:var(--text);}
 .inline-add-input{
   width:100%;margin-top:6px;padding:6px 0;
   border-bottom:1px dashed var(--border);font-size:.85rem;
