@@ -1208,3 +1208,76 @@ h1,h2,h3,h4{font-family:var(--font-b);}
   .subs-table th:nth-child(5),.subs-table td:nth-child(5),
   .subs-table th:nth-child(6),.subs-table td:nth-child(6){display:none;}
 }
+
+/* ── 뽀모도로 위젯 ───────────────────────────────────── */
+.pomo-widget{position:fixed;bottom:24px;right:20px;z-index:9999;}
+.pomo-mini{
+  display:flex;align-items:center;gap:6px;
+  background:var(--accent);color:#fff;
+  border-radius:50px;padding:10px 16px;cursor:pointer;
+  font-size:.88rem;font-weight:600;
+  box-shadow:0 4px 14px rgba(0,0,0,.22);
+  user-select:none;transition:transform .15s;
+}
+.pomo-mini:hover{transform:scale(1.05);}
+.pomo-panel{
+  display:none;flex-direction:column;gap:10px;
+  background:var(--card);border:1.5px solid var(--border);
+  border-radius:16px;box-shadow:0 8px 28px rgba(0,0,0,.18);
+  padding:16px;width:222px;
+}
+.pomo-widget.pomo-collapsed .pomo-mini{display:flex;}
+.pomo-widget.pomo-collapsed .pomo-panel{display:none;}
+.pomo-widget:not(.pomo-collapsed) .pomo-mini{display:none;}
+.pomo-widget:not(.pomo-collapsed) .pomo-panel{display:flex;}
+.pomo-head{display:flex;align-items:center;justify-content:space-between;}
+.pomo-head-title{font-weight:700;font-size:.88rem;color:var(--text);}
+.pomo-head-btns{display:flex;gap:4px;}
+.pomo-hbtn{
+  background:transparent;border:none;color:var(--text3);
+  cursor:pointer;font-size:.88rem;padding:2px 5px;border-radius:5px;
+}
+.pomo-hbtn:hover{background:var(--bg2);color:var(--text);}
+.pomo-title-inp{
+  width:100%;background:var(--bg2);border:1px solid var(--border);
+  border-radius:8px;padding:6px 10px;font-size:.78rem;color:var(--text);
+  box-sizing:border-box;
+}
+.pomo-title-inp:focus{outline:none;border-color:var(--accent);}
+.pomo-settings-area{
+  flex-direction:column;gap:7px;background:var(--bg2);
+  border-radius:10px;padding:10px;display:none;
+}
+.pomo-set-row{display:flex;align-items:center;gap:6px;font-size:.76rem;color:var(--text2);}
+.pomo-set-row label{flex:1;}
+.pomo-set-inp{
+  width:44px;background:var(--card);border:1px solid var(--border);
+  border-radius:5px;padding:3px 4px;font-size:.78rem;
+  color:var(--text);text-align:center;
+}
+.pomo-apply-btn{
+  background:var(--accent);color:#fff;border:none;border-radius:7px;
+  padding:5px 0;font-size:.76rem;cursor:pointer;width:100%;margin-top:2px;
+}
+.pomo-display{text-align:center;padding:6px 0 2px;}
+.pomo-time-big{
+  font-size:2.4rem;font-weight:700;color:var(--accent);
+  letter-spacing:.04em;line-height:1;
+}
+.pomo-phase-label{font-size:.75rem;color:var(--text3);margin-top:5px;}
+.pomo-controls{display:flex;gap:8px;justify-content:center;}
+.pomo-ctrl{
+  background:var(--bg2);border:1.5px solid var(--border);
+  border-radius:50%;width:42px;height:42px;
+  font-size:1rem;cursor:pointer;color:var(--text);
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s,border-color .15s,color .15s;
+}
+.pomo-ctrl:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
+.pomo-today-count{text-align:center;font-size:.74rem;color:var(--text3);}
+@media(max-width:768px){
+  .pomo-widget{bottom:72px;right:14px;}
+  .pomo-panel{width:195px;}
+  .pomo-time-big{font-size:2rem;}
+  .pomo-mini{padding:8px 13px;font-size:.82rem;}
+}

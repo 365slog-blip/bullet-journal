@@ -35,7 +35,7 @@
       </button>
       <p class="google-note" id="google-note">데이터 저장을 위해 Google 계정이 필요합니다</p>
     </div>
-    <p class="auth-ver">v1.6.1</p>
+    <p class="auth-ver">v1.6.2</p>
   </div>
 </div>
 
@@ -301,6 +301,52 @@
     </div>
 
   </main>
+
+  <!-- ══ POMODORO WIDGET ══ -->
+  <div id="pomo-widget" class="pomo-widget pomo-collapsed">
+    <div class="pomo-mini" id="pomo-mini">
+      🍅 <span id="pomo-mini-time">25:00</span>
+    </div>
+    <div class="pomo-panel" id="pomo-panel">
+      <div class="pomo-head">
+        <span class="pomo-head-title">🍅 뽀모도로</span>
+        <div class="pomo-head-btns">
+          <button class="pomo-hbtn" id="pomo-settings-btn" title="설정">⚙</button>
+          <button class="pomo-hbtn" id="pomo-close-btn" title="닫기">✕</button>
+        </div>
+      </div>
+      <input class="pomo-title-inp" id="pomo-title" placeholder="제목 (없으면 '집중')">
+      <div class="pomo-settings-area" id="pomo-settings-area">
+        <div class="pomo-set-row">
+          <label>집중</label>
+          <input type="number" class="pomo-set-inp" id="ps-focus" value="25" min="1" max="99">
+          <span>분</span>
+        </div>
+        <div class="pomo-set-row">
+          <label>짧은 휴식</label>
+          <input type="number" class="pomo-set-inp" id="ps-short" value="5" min="1" max="30">
+          <span>분</span>
+        </div>
+        <div class="pomo-set-row">
+          <label>긴 휴식</label>
+          <input type="number" class="pomo-set-inp" id="ps-long" value="15" min="1" max="60">
+          <span>분</span>
+        </div>
+        <button class="pomo-apply-btn" id="pomo-apply-btn">적용</button>
+      </div>
+      <div class="pomo-display">
+        <div class="pomo-time-big" id="pomo-time-big">25:00</div>
+        <div class="pomo-phase-label" id="pomo-phase-label">집중 1/4</div>
+      </div>
+      <div class="pomo-controls">
+        <button class="pomo-ctrl" id="pomo-start-btn" title="시작">▶</button>
+        <button class="pomo-ctrl" id="pomo-pause-btn" title="일시정지">⏸</button>
+        <button class="pomo-ctrl" id="pomo-reset-btn" title="초기화">↺</button>
+      </div>
+      <div class="pomo-today-count" id="pomo-today-count">오늘 완료: 0회</div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ══ ROUTINE SETTINGS MODAL ══ -->
@@ -344,6 +390,7 @@
   <div class="spinner"></div>
 </div>
 
+<script src="https://accounts.google.com/gsi/client" async></script>
 <script src="auth.js" defer></script>
 <script src="sheets.js" defer></script>
 <script src="main.js" defer></script>

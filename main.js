@@ -104,7 +104,7 @@ async function loadData() {
     diaryRows, weeklyRows, calRows,
     projRows, taskRows, wordRows, duoRows,
     booksRows, moviesRows, dramasRows, webtoonRows,
-    subsRows,
+    subsRows, pomoRows,
   ] = await Promise.all([
     sheetsRead('투두'),       sheetsRead('루틴설정'), sheetsRead('루틴기록'),
     sheetsRead('하루일기'),   sheetsRead('주간계획'), sheetsRead('월간스케줄'),
@@ -112,7 +112,7 @@ async function loadData() {
     sheetsRead('단어장'),     sheetsRead('듀오링고'),
     sheetsRead('독서'),       sheetsRead('영화'),
     sheetsRead('드라마'),     sheetsRead('웹툰웹소설'),
-    sheetsRead('구독관리'),
+    sheetsRead('구독관리'),   sheetsRead('뽀모도로'),
   ]);
 
   const todos    = parseRows(todoRows, ['날짜', '항목', '타입', '완료']);
@@ -137,7 +137,8 @@ async function loadData() {
     ...parseRows(webtoonRows, wCols).map(w => ({ ...w, _sheet: '웹툰웹소설', _cat: '웹툰웹소설' })),
   ].sort((a, b) => b.날짜.localeCompare(a.날짜));
 
-  S.subs = parseRows(subsRows, ['서비스명', '결제일', '금액', '카테고리', '출금은행', '사진URL', '결제주기', '결제월']);
+  S.subs            = parseRows(subsRows, ['서비스명', '결제일', '금액', '카테고리', '출금은행', '사진URL', '결제주기', '결제월']);
+  S.pomodoroRecords = parseRows(pomoRows, ['날짜', '제목', '집중시간', '완료시간', '뽀모도로횟수']);
 
   if (S.routineSettings.length === 0) await initDefaultRoutines();
 }
@@ -2379,6 +2380,176 @@ function initPullToRefresh() {
   });
 }
 
+// ── POMODORO ──────────────────────────────────────────
+const POMO = {
+  focusMins:     25,
+  shortMins:     5,
+  longMins:      15,
+  pomosPerCycle: 4,
+  phase:         'focus',
+  cycleCount:    0,
+  secondsLeft:   25 * 60,
+  running:       false,
+  _interval:     null,
+  _todayCount:   0,
+};
+
+function _pomoFmt(s) {
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function _pomoPhaseLabel() {
+  if (POMO.phase === 'short') return '짧은 휴식';
+  if (POMO.phase === 'long')  return '긴 휴식';
+  return `집중 ${POMO.cycleCount + 1}/${POMO.pomosPerCycle}`;
+}
+
+function _pomoUpdateDisplay() {
+  const t    = _pomoFmt(POMO.secondsLeft);
+  const el   = document.getElementById('pomo-time-big');
+  const mini = document.getElementById('pomo-mini-time');
+  const ph   = document.getElementById('pomo-phase-label');
+  if (el)   el.textContent   = t;
+  if (mini) mini.textContent = t;
+  if (ph)   ph.textContent   = _pomoPhaseLabel();
+}
+
+function _pomoBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.25, 0.5].forEach(offset => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0, ctx.currentTime + offset);
+      gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + offset + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.35);
+      osc.start(ctx.currentTime + offset);
+      osc.stop(ctx.currentTime + offset + 0.45);
+    });
+  } catch (e) {}
+}
+
+function _pomoRefreshTodayCount() {
+  const el = document.getElementById('pomo-today-count');
+  if (el) el.textContent = `오늘 완료: ${POMO._todayCount}회`;
+}
+
+function _pomoComplete() {
+  clearInterval(POMO._interval);
+  POMO._interval = null;
+  POMO.running   = false;
+  _pomoBeep();
+
+  if (POMO.phase === 'focus') {
+    const title       = (document.getElementById('pomo-title')?.value || '').trim() || '집중';
+    const now         = new Date();
+    const completedAt = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    sheetsAppend('뽀모도로', [todayStr(), title, String(POMO.focusMins), completedAt, '1']);
+    POMO._todayCount++;
+    _pomoRefreshTodayCount();
+
+    POMO.cycleCount++;
+    if (POMO.cycleCount >= POMO.pomosPerCycle) {
+      POMO.cycleCount  = 0;
+      POMO.phase       = 'long';
+      POMO.secondsLeft = POMO.longMins * 60;
+    } else {
+      POMO.phase       = 'short';
+      POMO.secondsLeft = POMO.shortMins * 60;
+    }
+  } else {
+    POMO.phase       = 'focus';
+    POMO.secondsLeft = POMO.focusMins * 60;
+  }
+
+  _pomoUpdateDisplay();
+  _pomoStart();
+}
+
+function _pomoTick() {
+  if (POMO.secondsLeft <= 0) { _pomoComplete(); return; }
+  POMO.secondsLeft--;
+  _pomoUpdateDisplay();
+}
+
+function _pomoStart() {
+  if (POMO.running) return;
+  POMO.running   = true;
+  POMO._interval = setInterval(_pomoTick, 1000);
+}
+
+function _pomoPause() {
+  if (!POMO.running) return;
+  POMO.running = false;
+  clearInterval(POMO._interval);
+  POMO._interval = null;
+}
+
+function _pomoReset() {
+  _pomoPause();
+  POMO.phase       = 'focus';
+  POMO.cycleCount  = 0;
+  POMO.secondsLeft = POMO.focusMins * 60;
+  _pomoUpdateDisplay();
+}
+
+function initPomodoro() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('pomoSettings') || '{}');
+    if (saved.focus) POMO.focusMins = +saved.focus;
+    if (saved.short) POMO.shortMins = +saved.short;
+    if (saved.long)  POMO.longMins  = +saved.long;
+  } catch (e) {}
+  POMO.secondsLeft = POMO.focusMins * 60;
+
+  const today = todayStr();
+  POMO._todayCount = S.pomodoroRecords.filter(r => r.날짜 === today).length;
+
+  const widget = document.getElementById('pomo-widget');
+
+  document.getElementById('pomo-mini').addEventListener('click', () => {
+    widget.classList.remove('pomo-collapsed');
+  });
+
+  document.getElementById('pomo-close-btn').addEventListener('click', () => {
+    widget.classList.add('pomo-collapsed');
+  });
+
+  let settingsOpen = false;
+  document.getElementById('pomo-settings-btn').addEventListener('click', () => {
+    settingsOpen = !settingsOpen;
+    document.getElementById('pomo-settings-area').style.display = settingsOpen ? 'flex' : 'none';
+  });
+
+  document.getElementById('pomo-apply-btn').addEventListener('click', () => {
+    const f = Math.max(1, +(document.getElementById('ps-focus').value) || 25);
+    const s = Math.max(1, +(document.getElementById('ps-short').value) || 5);
+    const l = Math.max(1, +(document.getElementById('ps-long').value)  || 15);
+    POMO.focusMins = f;
+    POMO.shortMins = s;
+    POMO.longMins  = l;
+    localStorage.setItem('pomoSettings', JSON.stringify({ focus: f, short: s, long: l }));
+    _pomoReset();
+    settingsOpen = false;
+    document.getElementById('pomo-settings-area').style.display = 'none';
+    showToast('설정이 적용됐습니다');
+  });
+
+  document.getElementById('pomo-start-btn').addEventListener('click', _pomoStart);
+  document.getElementById('pomo-pause-btn').addEventListener('click', _pomoPause);
+  document.getElementById('pomo-reset-btn').addEventListener('click', _pomoReset);
+
+  document.getElementById('ps-focus').value = POMO.focusMins;
+  document.getElementById('ps-short').value = POMO.shortMins;
+  document.getElementById('ps-long').value  = POMO.longMins;
+  _pomoUpdateDisplay();
+  _pomoRefreshTodayCount();
+}
+
 // ── BOOT ──────────────────────────────────────────────
 let _appReady = false;
 let _weightVisible = false;
@@ -2397,6 +2568,8 @@ function onPinSuccess() {
       initLangTab();
       _updateDuoTab();
       initPullToRefresh();
+      initPomodoro();
+      startTokenRefreshTimer();
       _appReady = true;
       switchTab('home');
       showToast('환영합니다 ✦');
@@ -2414,6 +2587,12 @@ async function boot() {
 
   S.selDate = todayStr();
   initPin();
+
+  // GIS 라이브러리 로드 후 토큰 클라이언트 초기화 (폴링)
+  (function _tryInitGis() {
+    if (window.google?.accounts?.oauth2) initGisTokenClient();
+    else setTimeout(_tryInitGis, 500);
+  })();
 
   const cb = checkOAuthCallback();
   if (cb) {

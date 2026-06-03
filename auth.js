@@ -76,6 +76,7 @@ const S = {
   duolingo:        [],
   writings:        [],
   subs:            [],
+  pomodoroRecords: [],
 };
 
 // ── GOOGLE OAUTH (redirect implicit flow) ─────────────
@@ -177,4 +178,37 @@ function showPinScreen() {
   _pin = '';
   _updateDots();
   _setPinMsg('PIN을 입력하세요', false);
+}
+
+// ── GIS 토큰 자동 갱신 ────────────────────────────────
+function initGisTokenClient() {
+  if (!window.google?.accounts?.oauth2) return;
+  window._gisTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CFG.CLIENT_ID,
+    scope:     CFG.SCOPES,
+    callback:  (resp) => {
+      if (resp.error) {
+        if (typeof showToast === 'function') {
+          showToast('세션이 만료됐어요. 다시 로그인해주세요', true);
+        }
+        return;
+      }
+      const expiresIn = +(resp.expires_in || 3600);
+      saveSession(resp.access_token, expiresIn);
+      applyToken(resp.access_token, Date.now() + expiresIn * 1000 - 60000);
+    },
+  });
+}
+
+function silentTokenRefresh() {
+  if (!window._gisTokenClient) return;
+  window._gisTokenClient.requestAccessToken({ prompt: '' });
+}
+
+function startTokenRefreshTimer() {
+  setInterval(() => {
+    if (!S.tokenExpiry) return;
+    const msLeft = S.tokenExpiry - Date.now();
+    if (msLeft > 0 && msLeft < 5 * 60 * 1000) silentTokenRefresh();
+  }, 10 * 60 * 1000);
 }
