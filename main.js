@@ -2472,6 +2472,7 @@ const POMO = {
   running:       false,
   _interval:     null,
   _todayCount:   0,
+  _audioCtx:     null,   // 사용자 클릭 후 초기화
 };
 
 function _pomoFmt(s) {
@@ -2494,23 +2495,53 @@ function _pomoUpdateDisplay() {
   if (ph)   ph.textContent   = _pomoPhaseLabel();
 }
 
-function _pomoBeep() {
+// 시작 버튼(사용자 제스처) 시점에 AudioContext 초기화
+function _pomoInitAudio() {
+  if (POMO._audioCtx) return;
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 0.25, 0.5].forEach(offset => {
+    POMO._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (e) {}
+}
+
+// isFocus: true = 높은 음 3번(집중 완료), false = 낮은 음 1번(휴식 완료)
+function _pomoBeep(isFocus) {
+  const ctx = POMO._audioCtx;
+  if (!ctx) return;
+
+  const play = () => {
+    if (isFocus) {
+      // 집중 완료: 880Hz × 3번
+      [0, 0.35, 0.7].forEach(offset => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0, ctx.currentTime + offset);
+        gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + offset + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.38);
+        osc.start(ctx.currentTime + offset);
+        osc.stop(ctx.currentTime + offset + 0.42);
+      });
+    } else {
+      // 휴식 완료: 440Hz × 1번
       const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.frequency.value = 880;
+      osc.frequency.value = 440;
       osc.type = 'sine';
-      gain.gain.setValueAtTime(0, ctx.currentTime + offset);
-      gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + offset + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.35);
-      osc.start(ctx.currentTime + offset);
-      osc.stop(ctx.currentTime + offset + 0.45);
-    });
-  } catch (e) {}
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.7);
+    }
+  };
+
+  if (ctx.state === 'suspended') ctx.resume().then(play);
+  else play();
 }
 
 function _pomoRefreshTodayCount() {
@@ -2522,13 +2553,22 @@ function _pomoComplete() {
   clearInterval(POMO._interval);
   POMO._interval = null;
   POMO.running   = false;
-  _pomoBeep();
 
-  if (POMO.phase === 'focus') {
+  const wasFocus = POMO.phase === 'focus';
+  _pomoBeep(wasFocus);
+
+  if (wasFocus) {
     const title       = (document.getElementById('pomo-title')?.value || '').trim() || '집중';
     const now         = new Date();
     const completedAt = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    sheetsAppend('뽀모도로', [todayStr(), title, String(POMO.focusMins), completedAt, '1']);
+    const dateStr     = todayStr();
+    sheetsAppend('뽀모도로', [dateStr, title, String(POMO.focusMins), completedAt, '1']);
+    // 로컬 records 업데이트 (기록 보기에서 즉시 반영)
+    S.pomodoroRecords.push({
+      _row: S.pomodoroRecords.length + 2,
+      날짜: dateStr, 제목: title,
+      집중시간: String(POMO.focusMins), 완료시간: completedAt, 뽀모도로횟수: '1',
+    });
     POMO._todayCount++;
     _pomoRefreshTodayCount();
 
@@ -2558,6 +2598,7 @@ function _pomoTick() {
 
 function _pomoStart() {
   if (POMO.running) return;
+  _pomoInitAudio();          // 사용자 제스처 시점에 AudioContext 활성화
   POMO.running   = true;
   POMO._interval = setInterval(_pomoTick, 1000);
 }
@@ -2575,6 +2616,56 @@ function _pomoReset() {
   POMO.cycleCount  = 0;
   POMO.secondsLeft = POMO.focusMins * 60;
   _pomoUpdateDisplay();
+}
+
+function _pomoShowRecords() {
+  const el = document.getElementById('pomo-records');
+  if (!el) return;
+
+  const today   = todayStr();
+  const allRecs = S.pomodoroRecords;
+
+  const todayRecs  = allRecs.filter(r => r.날짜 === today);
+  const todayCount = todayRecs.length;
+  const todayMins  = todayRecs.reduce((s, r) => s + (+r.집중시간 || 0), 0);
+
+  // 최근 7일 날짜별 집계
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 6);
+  const cutoffStr = fmtDate(cutoff);
+
+  const byDate = {};
+  allRecs
+    .filter(r => r.날짜 >= cutoffStr)
+    .forEach(r => {
+      if (!byDate[r.날짜]) byDate[r.날짜] = { count: 0, mins: 0 };
+      byDate[r.날짜].count++;
+      byDate[r.날짜].mins += (+r.집중시간 || 0);
+    });
+
+  const rows = Object.entries(byDate)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([date, info]) => {
+      const d     = new Date(date + 'T00:00:00');
+      const label = date === today ? '오늘'
+                  : `${d.getMonth() + 1}/${d.getDate()}`;
+      return `<div class="pomo-rec-row">
+        <span class="pomo-rec-date">${label}</span>
+        <span class="pomo-rec-count">${info.count}회</span>
+        <span class="pomo-rec-min">${info.mins}분</span>
+      </div>`;
+    }).join('');
+
+  el.innerHTML = `
+    <div class="pomo-rec-today">
+      <span>오늘 ${todayCount}회 완료</span>
+      <span class="pomo-rec-today-min">${todayMins}분 집중</span>
+    </div>
+    <div class="pomo-rec-subtitle">최근 7일</div>
+    <div class="pomo-rec-list">
+      ${rows || '<div class="pomo-rec-empty">기록 없음</div>'}
+    </div>
+  `;
 }
 
 function initPomodoro() {
@@ -2597,6 +2688,7 @@ function initPomodoro() {
 
   document.getElementById('pomo-close-btn').addEventListener('click', () => {
     widget.classList.add('pomo-collapsed');
+    widget.classList.remove('pomo-rec-open');
   });
 
   let settingsOpen = false;
@@ -2622,6 +2714,24 @@ function initPomodoro() {
   document.getElementById('pomo-start-btn').addEventListener('click', _pomoStart);
   document.getElementById('pomo-pause-btn').addEventListener('click', _pomoPause);
   document.getElementById('pomo-reset-btn').addEventListener('click', _pomoReset);
+
+  // 기록 보기 토글
+  let recOpen = false;
+  document.getElementById('pomo-rec-btn').addEventListener('click', () => {
+    recOpen = !recOpen;
+    const recEl = document.getElementById('pomo-records');
+    const btn   = document.getElementById('pomo-rec-btn');
+    if (recOpen) {
+      _pomoShowRecords();
+      recEl.style.display = 'block';
+      widget.classList.add('pomo-rec-open');
+      btn.textContent = '닫기';
+    } else {
+      recEl.style.display = 'none';
+      widget.classList.remove('pomo-rec-open');
+      btn.textContent = '기록 보기';
+    }
+  });
 
   document.getElementById('ps-focus').value = POMO.focusMins;
   document.getElementById('ps-short').value = POMO.shortMins;
