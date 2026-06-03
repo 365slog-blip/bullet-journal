@@ -1181,7 +1181,6 @@ function renderFolderBar(body) {
   const createFolder = () => {
     const name = inp.value.trim();
     if (!name) { showToast('폴더명을 입력하세요', true); return; }
-    if (getFolderList().includes(name)) { showToast('이미 존재하는 폴더입니다', true); return; }
     S.wordPendingFolders.push(name);
     inp.value = '';
     inpWrap.classList.add('hidden');
