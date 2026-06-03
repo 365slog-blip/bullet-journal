@@ -607,6 +607,27 @@ h1,h2,h3,h4{font-family:var(--font-b);}
   .wt-add-row{display:none;}
 }
 
+/* ── 폴더 바 ──────────────────────────────────────────── */
+.word-folder-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:4px 0;}
+.word-folder-chip{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);font-size:.78rem;cursor:pointer;background:var(--card);color:var(--text2);user-select:none;transition:border-color .15s,color .15s;}
+.word-folder-chip:hover{border-color:var(--accent);color:var(--accent);}
+.word-folder-chip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.word-folder-chip.active .wf-chip-del{color:rgba(255,255,255,.75);}
+.wf-chip-del{background:none;border:none;cursor:pointer;font-size:.62rem;line-height:1;padding:0 0 0 2px;color:var(--text3);flex-shrink:0;}
+.wf-chip-del:hover{color:var(--danger);}
+.word-new-folder-btn{font-size:.75rem;padding:4px 10px;border-radius:20px;border:1px dashed var(--border);background:none;color:var(--text3);cursor:pointer;white-space:nowrap;}
+.word-new-folder-btn:hover{border-color:var(--accent);color:var(--accent);}
+.word-folder-inp-wrap{display:flex;gap:4px;align-items:center;}
+
+/* ── 이동 바 ──────────────────────────────────────────── */
+.word-move-bar{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--accent);border-radius:var(--radius);padding:8px 14px;margin-top:10px;flex-wrap:wrap;font-size:.82rem;}
+.word-move-bar.hidden{display:none;}
+
+/* ── 체크박스 컬럼 ────────────────────────────────────── */
+.wt-th-chk{width:28px;padding:0 4px;}
+.wt-td-chk{width:28px;text-align:center;vertical-align:middle;padding:0 4px;}
+.wt-chk{width:14px;height:14px;cursor:pointer;accent-color:var(--accent);}
+
 /* ── 인라인 추가 행 (데스크탑 전용) ─────────────────── */
 .wt-add-row td{
   padding:6px 8px;

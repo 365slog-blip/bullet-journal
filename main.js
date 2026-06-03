@@ -126,7 +126,7 @@ async function loadData() {
   S.calEvents       = parseRows(calRows, ['날짜', '내용', '색상']);
   S.projects        = parseRows(projRows, ['ID', '제목', '설명', '색상', '시작일', '종료일', '상태', '브레인스토밍']);
   S.projTasks       = parseRows(taskRows, ['프로젝트ID', '제목', '내용', '완료', '데드라인', '비고']);
-  S.words           = parseRows(wordRows, ['언어', '단어', '읽는법', '뜻', '품사', '예문', '예문해석', '외웠는지']);
+  S.words           = parseRows(wordRows, ['언어', '단어', '읽는법', '뜻', '품사', '예문', '예문해석', '외웠는지', '폴더']);
   S.duolingo        = parseRows(duoRows,  ['날짜', '언어', 'XP', '스트릭']);
 
   const wCols = ['제목', '서브', '별점', '날짜', '내용', '이미지'];
@@ -1093,6 +1093,7 @@ function initLangTab() {
       b.classList.add('active');
       S.lang = b.dataset.lang;
       S.langSub = 'words'; S.flashMode = false;
+      S.wordFolder = 'all'; S.wordChecked = new Set(); S.wordPendingFolders = [];
       document.querySelectorAll('.lstab').forEach(x => x.classList.remove('active'));
       document.querySelector('.lstab[data-sub="words"]').classList.add('active');
       _updateDuoTab();
@@ -1119,6 +1120,143 @@ function renderLangBody() {
 
 function getWordsForLang() {
   return S.words.filter(w => w.언어 === S.lang);
+}
+
+function getFolderList() {
+  const fromData = [...new Set(getWordsForLang().map(w => w.폴더).filter(Boolean))];
+  const pending  = S.wordPendingFolders.filter(f => !fromData.includes(f));
+  return [...fromData, ...pending];
+}
+
+function renderFolderBar(body) {
+  const bar = document.getElementById('word-folder-bar');
+  if (!bar) return;
+  const folders = getFolderList();
+  const chips = folders.map(f => `
+    <span class="word-folder-chip${S.wordFolder===f?' active':''}" data-folder="${f}">
+      ${f}<button class="wf-chip-del" data-folder="${f}" title="폴더 삭제">✕</button>
+    </span>`).join('');
+  bar.innerHTML = `
+    <span class="word-folder-chip${S.wordFolder==='all'?' active':''}" data-folder="all">전체</span>
+    ${chips}
+    <button class="word-new-folder-btn" id="word-new-folder-btn">+ 폴더 만들기</button>
+    <div class="word-folder-inp-wrap hidden" id="word-folder-inp-wrap">
+      <input class="wt-inp" id="word-folder-inp" placeholder="폴더명" style="width:100px">
+      <button class="wi-save-btn" id="word-folder-inp-ok">✓</button>
+      <button class="wi-save-btn" style="background:var(--text3)" id="word-folder-inp-cancel">✕</button>
+    </div>`;
+
+  bar.querySelectorAll('.word-folder-chip').forEach(chip => {
+    chip.addEventListener('click', e => {
+      if (e.target.classList.contains('wf-chip-del')) return;
+      S.wordFolder = chip.dataset.folder;
+      S.wordChecked = new Set();
+      renderFolderBar(body);
+      renderWordTable(body, document.getElementById('word-search')?.value || '');
+      updateMoveBar(body);
+    });
+  });
+
+  bar.querySelectorAll('.wf-chip-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteFolderConfirm(btn.dataset.folder, body);
+    });
+  });
+
+  const newFolderBtn = document.getElementById('word-new-folder-btn');
+  const inpWrap = document.getElementById('word-folder-inp-wrap');
+  const inp = document.getElementById('word-folder-inp');
+
+  newFolderBtn.onclick = () => {
+    newFolderBtn.classList.add('hidden');
+    inpWrap.classList.remove('hidden');
+    inp.focus();
+  };
+  document.getElementById('word-folder-inp-cancel').onclick = () => {
+    inpWrap.classList.add('hidden');
+    newFolderBtn.classList.remove('hidden');
+    inp.value = '';
+  };
+  const createFolder = () => {
+    const name = inp.value.trim();
+    if (!name) { showToast('폴더명을 입력하세요', true); return; }
+    if (getFolderList().includes(name)) { showToast('이미 존재하는 폴더입니다', true); return; }
+    S.wordPendingFolders.push(name);
+    inp.value = '';
+    inpWrap.classList.add('hidden');
+    newFolderBtn.classList.remove('hidden');
+    renderFolderBar(body);
+  };
+  document.getElementById('word-folder-inp-ok').onclick = createFolder;
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) createFolder(); });
+}
+
+function updateMoveBar(body) {
+  const bar = document.getElementById('word-move-bar');
+  if (!bar) return;
+  const cnt = S.wordChecked.size;
+  if (cnt === 0) { bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  document.getElementById('word-move-label').textContent = `${cnt}개 선택됨`;
+  const sel = document.getElementById('word-move-folder-sel');
+  if (sel) {
+    const folders = getFolderList();
+    sel.innerHTML = `<option value="">폴더 선택</option>` +
+      folders.map(f => `<option value="${f}">${f}</option>`).join('') +
+      `<option value="__none__">폴더 없음</option>`;
+  }
+}
+
+async function moveSelectedWords(body) {
+  const sel = document.getElementById('word-move-folder-sel');
+  const val = sel?.value;
+  if (!val) { showToast('폴더를 선택하세요', true); return; }
+  const folder = val === '__none__' ? '' : val;
+  const rowNums = [...S.wordChecked];
+  const btn = document.getElementById('word-move-do');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    await Promise.all(rowNums.map(rowNum => {
+      const word = S.words.find(w => w._row === rowNum);
+      if (!word) return;
+      const row = [word.언어, word.단어, word.읽는법||'', word.뜻, word.품사||'', word.예문||'', word.예문해석||'', word.외웠는지||'', folder];
+      word.폴더 = folder;
+      return sheetsUpdate('단어장', rowNum, row);
+    }));
+    const usedFolders = new Set(getWordsForLang().map(w => w.폴더).filter(Boolean));
+    S.wordPendingFolders = S.wordPendingFolders.filter(f => !usedFolders.has(f) && getFolderList().includes(f));
+    S.wordChecked = new Set();
+    renderFolderBar(body);
+    renderWordTable(body, document.getElementById('word-search')?.value || '');
+    updateMoveBar(body);
+    showToast(`${rowNums.length}개 단어 이동됨`);
+  } catch { showToast('이동 실패', true); }
+  finally { if (btn) { btn.textContent = '이동'; btn.disabled = false; } }
+}
+
+function deleteFolderConfirm(folderName, body) {
+  const wordsInFolder = getWordsForLang().filter(w => w.폴더 === folderName);
+  const msg = wordsInFolder.length > 0
+    ? `"${folderName}" 폴더를 삭제하면 ${wordsInFolder.length}개 단어가 폴더 없음 상태가 됩니다. 계속할까요?`
+    : `"${folderName}" 폴더를 삭제할까요?`;
+  confirmAction(msg, async () => {
+    if (wordsInFolder.length > 0) {
+      try {
+        await Promise.all(wordsInFolder.map(word => {
+          const row = [word.언어, word.단어, word.읽는법||'', word.뜻, word.품사||'', word.예문||'', word.예문해석||'', word.외웠는지||'', ''];
+          word.폴더 = '';
+          return sheetsUpdate('단어장', word._row, row);
+        }));
+      } catch { showToast('삭제 중 오류', true); return; }
+    }
+    S.wordPendingFolders = S.wordPendingFolders.filter(f => f !== folderName);
+    if (S.wordFolder === folderName) S.wordFolder = 'all';
+    renderFolderBar(body);
+    renderWordTable(body, document.getElementById('word-search')?.value || '');
+    updateMoveBar(body);
+    showToast(`"${folderName}" 폴더 삭제됨`);
+  });
 }
 
 // ── 단어장 PDF 저장 ─────────────────────────────────
@@ -1256,6 +1394,7 @@ function renderWords(body) {
   const showDict = S.lang === '영어';
 
   body.innerHTML = `
+    <div class="word-folder-bar" id="word-folder-bar"></div>
     <div class="word-toolbar">
       <input class="word-search-inp" id="word-search" placeholder="단어/뜻 검색">
       <div class="filter-chips" id="word-tag-chips">
@@ -1274,6 +1413,7 @@ function renderWords(body) {
       <table class="wt-table">
         <thead>
           <tr>
+            <th class="wt-th-chk"></th>
             <th>단어</th>
             <th>읽는법</th>
             <th>뜻</th>
@@ -1285,6 +1425,7 @@ function renderWords(body) {
         <tbody id="word-tbody"></tbody>
         <tfoot>
           <tr class="wt-add-row">
+            <td></td>
             <td class="wt-td-word">
               <div class="wi-word-cell">
                 <input class="wt-inp" id="wi-word" placeholder="단어">
@@ -1311,8 +1452,17 @@ function renderWords(body) {
         </tfoot>
       </table>
     </div>
+    <div class="word-move-bar hidden" id="word-move-bar">
+      <span id="word-move-label">0개 선택됨</span>
+      <span>→</span>
+      <select id="word-move-folder-sel" class="wt-inp" style="width:auto;min-width:100px"></select>
+      <button class="btn-primary" id="word-move-do" style="font-size:.78rem;padding:5px 12px">이동</button>
+      <button class="btn-outline" id="word-move-cancel" style="font-size:.78rem;padding:5px 12px">취소</button>
+    </div>
     <div id="word-form-area"></div>
   `;
+
+  renderFolderBar(body);
 
   document.getElementById('flash-btn').onclick = () => {
     S.flashMode = true; S.flashIdx = 0; S.flashFlipped = false; renderLangBody();
@@ -1324,11 +1474,19 @@ function renderWords(body) {
   document.getElementById('word-tag-chips').querySelectorAll('.filter-chip').forEach(btn =>
     btn.addEventListener('click', () => {
       S.wordFilter = btn.dataset.tag;
+      S.wordChecked = new Set();
       document.querySelectorAll('#word-tag-chips .filter-chip').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderWordTable(body, searchEl.value);
+      updateMoveBar(body);
     })
   );
+  document.getElementById('word-move-do').onclick = () => moveSelectedWords(body);
+  document.getElementById('word-move-cancel').onclick = () => {
+    S.wordChecked = new Set();
+    document.querySelectorAll('.wt-chk').forEach(c => c.checked = false);
+    updateMoveBar(body);
+  };
 
   // ── 인라인 추가 행 저장 ────────────────────────────
   const wiSave = async () => {
@@ -1339,13 +1497,13 @@ function renderWords(body) {
     const pos     = document.getElementById('wi-pos')?.value   || '';
     const ex      = document.getElementById('wi-ex')?.value    || '';
     const exmean  = document.getElementById('wi-exmean')?.value || '';
-    const row     = [S.lang, w, reading, m, pos, ex, exmean, '몰라요'];
+    const row     = [S.lang, w, reading, m, pos, ex, exmean, '몰라요', ''];
     const btn     = document.getElementById('wi-save');
     if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
     try {
       await sheetsAppend('단어장', row);
       const rows = await sheetsRead('단어장');
-      S.words = parseRows(rows, ['언어', '단어', '읽는법', '뜻', '품사', '예문', '예문해석', '외웠는지']);
+      S.words = parseRows(rows, ['언어', '단어', '읽는법', '뜻', '품사', '예문', '예문해석', '외웠는지', '폴더']);
       ['wi-word','wi-pron','wi-mean','wi-ex','wi-exmean'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
       });
@@ -1406,6 +1564,8 @@ function renderWordTable(body, search) {
   if (!tbody) return;
 
   let list = getWordsForLang();
+  if (S.wordFolder && S.wordFolder !== 'all')
+    list = list.filter(w => w.폴더 === S.wordFolder);
   if (S.wordFilter && S.wordFilter !== 'all')
     list = list.filter(w => w.외웠는지 === S.wordFilter);
   if (search) {
@@ -1414,18 +1574,19 @@ function renderWordTable(body, search) {
   }
 
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="wt-empty">단어가 없습니다</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="wt-empty">단어가 없습니다</td></tr>`;
     return;
   }
 
-  // 각 단어마다 메인 행 + 모바일 확장 행 쌍으로 생성
   tbody.innerHTML = list.map(w => {
-    const posBadge  = w.품사 ? `<span class="wt-pos-badge">${w.품사}</span>` : '';
-    const exHtml    = w.예문
+    const chkd     = S.wordChecked.has(w._row) ? ' checked' : '';
+    const posBadge = w.품사 ? `<span class="wt-pos-badge">${w.품사}</span>` : '';
+    const exHtml   = w.예문
       ? `<div class="wt-ex-orig">${w.예문}</div>${w.예문해석 ? `<div class="wt-ex-tl">${w.예문해석}</div>` : ''}`
       : '';
     return `
       <tr class="wt-row" data-row="${w._row}">
+        <td class="wt-td-chk"><input type="checkbox" class="wt-chk" data-row="${w._row}"${chkd}></td>
         <td class="wt-td-word"><strong>${w.단어}</strong></td>
         <td class="wt-td-pron">${w.읽는법||''}</td>
         <td class="wt-td-mean">${w.뜻}</td>
@@ -1439,7 +1600,7 @@ function renderWordTable(body, search) {
         </td>
       </tr>
       <tr class="wt-det" data-for="${w._row}">
-        <td colspan="6">
+        <td colspan="7">
           <div class="wt-det-body">
             ${posBadge}
             ${exHtml ? `<div class="wt-det-ex">${exHtml}</div>` : ''}
@@ -1448,10 +1609,18 @@ function renderWordTable(body, search) {
       </tr>`;
   }).join('');
 
-  // 모바일 행 클릭 → 확장
+  tbody.querySelectorAll('.wt-chk').forEach(chk => {
+    chk.addEventListener('change', () => {
+      const row = +chk.dataset.row;
+      if (chk.checked) S.wordChecked.add(row);
+      else S.wordChecked.delete(row);
+      updateMoveBar(body);
+    });
+  });
+
   tbody.querySelectorAll('.wt-row').forEach(row => {
     row.addEventListener('click', e => {
-      if (e.target.closest('.wt-btns')) return;
+      if (e.target.closest('.wt-btns') || e.target.classList.contains('wt-chk')) return;
       const det = tbody.querySelector(`.wt-det[data-for="${row.dataset.row}"]`);
       if (det) det.classList.toggle('wt-expanded');
     });
@@ -1464,6 +1633,7 @@ function renderWordTable(body, search) {
         await sheetsDelete('단어장', row);
         S.words = S.words.filter(w => w._row !== row);
         S.words.forEach(w => { if (w._row > row) w._row--; });
+        S.wordChecked.delete(row);
         renderWords(body);
       });
     })
@@ -1591,6 +1761,7 @@ function showWordForm(body, word) {
       document.getElementById('wf-ex').value,
       document.getElementById('wf-exmean').value,
       tag,
+      isEdit ? (word.폴더 || '') : '',
     ];
     if (isEdit) {
       await sheetsUpdate('단어장', word._row, row);
@@ -1598,7 +1769,7 @@ function showWordForm(body, word) {
     } else {
       await sheetsAppend('단어장', row);
       const rows = await sheetsRead('단어장');
-      S.words = parseRows(rows, ['언어', '단어', '읽는법', '뜻', '품사', '예문', '예문해석', '외웠는지']);
+      S.words = parseRows(rows, ['언어', '단어', '읽는법', '뜻', '품사', '예문', '예문해석', '외웠는지', '폴더']);
     }
     area.innerHTML = '';
     renderWords(body);
