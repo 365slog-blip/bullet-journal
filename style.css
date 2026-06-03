@@ -757,6 +757,16 @@ h1,h2,h3,h4{font-family:var(--font-b);}
   color:var(--text2);border-radius:8px;font-size:.85rem;
 }
 .btn-outline:hover{background:var(--bg2);}
+/* 단어 사전 검색 버튼 */
+.wf-dict-btn{
+  flex-shrink:0;width:36px;height:36px;border-radius:8px;font-size:.95rem;
+  background:var(--bg3);border:1px solid var(--border);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .15s;
+}
+.wf-dict-btn:hover{background:var(--aclt);}
+.wf-dict-btn:disabled{opacity:.5;cursor:default;}
+/* 자동 입력된 필드 */
+.wf-autofilled{background:color-mix(in srgb,var(--accent) 8%,var(--bg2))!important;border-color:var(--accent)!important;}
 .btn-danger{
   padding:8px 16px;background:var(--danger);color:#fff;
   border-radius:8px;font-size:.85rem;
