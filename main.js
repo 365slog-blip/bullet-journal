@@ -1124,6 +1124,9 @@ function getWordsForLang() {
 function renderWords(body) {
   if (S.flashMode) { renderFlashCard(body); return; }
 
+  const posOpts  = ['', '명사', '동사', '형용사', '부사', '기타'];
+  const showDict = S.lang === '영어';
+
   body.innerHTML = `
     <div class="word-toolbar">
       <input class="word-search-inp" id="word-search" placeholder="단어/뜻 검색">
@@ -1151,6 +1154,32 @@ function renderWords(body) {
           </tr>
         </thead>
         <tbody id="word-tbody"></tbody>
+        <tfoot>
+          <tr class="wt-add-row">
+            <td class="wt-td-word">
+              <div class="wi-word-cell">
+                <input class="wt-inp" id="wi-word" placeholder="단어">
+                ${showDict ? `<button class="wi-dict-btn" id="wi-dict" title="사전 검색">🔍</button>` : ''}
+              </div>
+            </td>
+            <td class="wt-td-pron"><input class="wt-inp" id="wi-pron" placeholder="읽는법"></td>
+            <td class="wt-td-mean"><input class="wt-inp" id="wi-mean" placeholder="뜻 *"></td>
+            <td class="wt-td-pos wt-th-pos">
+              <select class="wt-inp" id="wi-pos">
+                ${posOpts.map(p => `<option value="${p}">${p || '품사'}</option>`).join('')}
+              </select>
+            </td>
+            <td class="wt-td-ex wt-th-ex">
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <input class="wt-inp" id="wi-ex" placeholder="예문">
+                <input class="wt-inp" id="wi-exmean" placeholder="예문해석">
+              </div>
+            </td>
+            <td class="wt-th-act" style="text-align:center;vertical-align:middle">
+              <button class="wi-save-btn" id="wi-save" title="저장">✓</button>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
     <div id="word-form-area"></div>
@@ -1170,6 +1199,75 @@ function renderWords(body) {
       renderWordTable(body, searchEl.value);
     })
   );
+
+  // ── 인라인 추가 행 저장 ────────────────────────────
+  const wiSave = async () => {
+    const w = document.getElementById('wi-word')?.value.trim();
+    const m = document.getElementById('wi-mean')?.value.trim();
+    if (!w || !m) { showToast('단어와 뜻을 입력하세요', true); return; }
+    const reading = document.getElementById('wi-pron')?.value  || '';
+    const pos     = document.getElementById('wi-pos')?.value   || '';
+    const ex      = document.getElementById('wi-ex')?.value    || '';
+    const exmean  = document.getElementById('wi-exmean')?.value || '';
+    const row     = [S.lang, w, reading, m, pos, ex, exmean, '몰라요'];
+    const btn     = document.getElementById('wi-save');
+    if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+    try {
+      await sheetsAppend('단어장', row);
+      const rows = await sheetsRead('단어장');
+      S.words = parseRows(rows, ['언어', '단어', '읽는법', '뜻', '품사', '예문', '예문해석', '외웠는지']);
+      ['wi-word','wi-pron','wi-mean','wi-ex','wi-exmean'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+      });
+      const posEl = document.getElementById('wi-pos');
+      if (posEl) posEl.value = '';
+      renderWordTable(body, searchEl?.value || '');
+      document.getElementById('wi-word')?.focus();
+      showToast('단어 추가됨');
+    } catch (e) {
+      showToast('저장 실패', true);
+    } finally {
+      if (btn) { btn.textContent = '✓'; btn.disabled = false; }
+    }
+  };
+
+  document.getElementById('wi-save').addEventListener('click', wiSave);
+  ['wi-pron','wi-mean','wi-pos','wi-ex','wi-exmean'].forEach(id => {
+    document.getElementById(id)?.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.isComposing) wiSave();
+    });
+  });
+
+  // wi-word: 영어=Enter→사전검색, 그 외=Enter→저장
+  const wiWord = document.getElementById('wi-word');
+  const wiDict = document.getElementById('wi-dict');
+  if (wiDict) {
+    wiDict.addEventListener('click', async () => {
+      const term = wiWord?.value.trim();
+      if (!term) { showToast('단어를 먼저 입력하세요', true); return; }
+      wiDict.textContent = '⏳'; wiDict.disabled = true;
+      try {
+        const result = await dictSearch(term);
+        if (!result) { showToast('검색 결과가 없어요', true); return; }
+        if (result.pron) document.getElementById('wi-pron').value = result.pron;
+        if (result.mean) document.getElementById('wi-mean').value = result.mean;
+        if (result.ex)   document.getElementById('wi-ex').value   = result.ex;
+        if (result.pos) {
+          const match = posOpts.find(p => p && result.pos.includes(p));
+          if (match) document.getElementById('wi-pos').value = match;
+        }
+      } catch { showToast('검색 중 오류가 발생했어요', true); }
+      finally { wiDict.textContent = '🔍'; wiDict.disabled = false; }
+    });
+    wiWord?.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.isComposing) wiDict.click();
+    });
+  } else {
+    wiWord?.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.isComposing) wiSave();
+    });
+  }
+
   renderWordTable(body, '');
 }
 
@@ -1248,56 +1346,37 @@ function renderWordTable(body, search) {
   );
 }
 
-async function dictSearch(term, lang) {
+async function dictSearch(term) {
   const posKoMap = {
     noun:'명사', verb:'동사', adjective:'형용사', adverb:'부사',
     preposition:'전치사', conjunction:'접속사', interjection:'감탄사',
     pronoun:'대명사', exclamation:'감탄사', abbreviation:'약어',
     'auxiliary verb':'조동사', 'phrasal verb':'구동사',
   };
-
-  if (lang === '영어') {
-    const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(term)}`);
-    if (!r.ok) return null;
-    const data = await r.json();
-    if (!Array.isArray(data) || !data[0]) return null;
-    const entry   = data[0];
-    const phon    = entry.phonetics?.find(p => p.text)?.text || '';
-    const meaning = entry.meanings?.[0];
-    const pos     = meaning?.partOfSpeech || '';
-    const posKo   = posKoMap[pos] || pos;
-    const def     = meaning?.definitions?.[0];
-    const mean    = def?.definition || '';
-    const ex      = def?.example   || '';
-    return { pron: phon, mean, pos: posKo, ex, exmean: '' };
-  }
-
-  if (lang === '일본어') {
-    const r = await fetch(`https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(term)}`);
-    if (!r.ok) return null;
-    const data = await r.json();
-    const entry = data?.data?.[0];
-    if (!entry) return null;
-    const jp      = entry.japanese?.[0] || {};
-    const reading = jp.reading || '';
-    const kanji   = jp.word    || '';
-    const sense   = entry.senses?.[0] || {};
-    const defs    = sense.english_definitions || [];
-    const mean    = defs.join(', ');
-    const jPos    = (sense.parts_of_speech || [])[0] || '';
-    return { pron: reading, mean, pos: jPos, ex: '', exmean: '' };
-  }
-
-  return null;
+  const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(term)}`);
+  if (!r.ok) return null;
+  const data = await r.json();
+  console.log('[dictSearch] API response:', data);
+  if (!Array.isArray(data) || !data[0]) return null;
+  const entry   = data[0];
+  const phon    = entry.phonetics?.find(p => p.text)?.text || '';
+  const meaning = entry.meanings?.[0];
+  const pos     = meaning?.partOfSpeech || '';
+  const posKo   = posKoMap[pos] || pos;
+  const def     = meaning?.definitions?.[0];
+  const mean    = def?.definition || '';
+  const ex      = def?.example   || '';
+  return { pron: phon, mean, pos: posKo, ex, exmean: '' };
 }
 
 function showWordForm(body, word) {
-  const isEdit  = !!word;
-  const area    = document.getElementById('word-form-area');
+  const isEdit   = !!word;
+  const area     = document.getElementById('word-form-area');
   if (!area) return;
-  const pronLbl = S.lang === '일본어' ? '읽는법(히라가나)' : '발음기호';
-  const posOpts = ['', '명사', '동사', '형용사', '부사', '기타'];
-  const curPos  = isEdit ? (word.품사 || '') : '';
+  const pronLbl  = S.lang === '일본어' ? '읽는법(히라가나)' : '발음기호';
+  const showDict = S.lang === '영어';
+  const posOpts  = ['', '명사', '동사', '형용사', '부사', '기타'];
+  const curPos   = isEdit ? (word.품사 || '') : '';
 
   area.innerHTML = `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:14px;display:flex;flex-direction:column;gap:10px">
@@ -1306,7 +1385,7 @@ function showWordForm(body, word) {
         <label style="font-size:.72rem;color:var(--text3)">단어 *</label>
         <div style="display:flex;gap:6px">
           <input class="form-input" id="wf-word" value="${isEdit ? word.단어 : ''}" style="flex:1">
-          <button class="wf-dict-btn" id="wf-dict-search" title="사전 검색">🔍</button>
+          ${showDict ? `<button class="wf-dict-btn" id="wf-dict-search" title="사전 검색">🔍</button>` : ''}
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -1330,6 +1409,7 @@ function showWordForm(body, word) {
     </div>
   `;
 
+  const posOptsList = ['', '명사', '동사', '형용사', '부사', '기타'];
   const setAutoFill = result => {
     ['wf-mean','wf-pron','wf-ex'].forEach(id => {
       const el = document.getElementById(id);
@@ -1344,30 +1424,30 @@ function showWordForm(body, word) {
     fill('wf-mean', result.mean);
     fill('wf-pron', result.pron);
     fill('wf-ex',   result.ex);
-    // 품사: API 결과를 posOpts 목록에 맞춰 선택
     if (result.pos) {
-      const sel = document.getElementById('wf-pos');
-      const match = posOpts.find(p => p && result.pos.includes(p));
+      const sel   = document.getElementById('wf-pos');
+      const match = posOptsList.find(p => p && result.pos.includes(p));
       if (match) { sel.value = match; sel.classList.add('wf-autofilled'); }
     }
   };
 
-  document.getElementById('wf-dict-search').addEventListener('click', async () => {
-    const term = document.getElementById('wf-word').value.trim();
-    if (!term) { showToast('단어를 먼저 입력하세요', true); return; }
-    const btn = document.getElementById('wf-dict-search');
-    btn.textContent = '⏳'; btn.disabled = true;
-    try {
-      const result = await dictSearch(term, S.lang);
-      if (!result) showToast('검색 결과가 없어요', true);
-      else setAutoFill(result);
-    } catch { showToast('검색 중 오류가 발생했어요', true); }
-    finally { btn.textContent = '🔍'; btn.disabled = false; }
-  });
-
-  document.getElementById('wf-word').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.isComposing) document.getElementById('wf-dict-search').click();
-  });
+  const dictBtn = document.getElementById('wf-dict-search');
+  if (dictBtn) {
+    dictBtn.addEventListener('click', async () => {
+      const term = document.getElementById('wf-word').value.trim();
+      if (!term) { showToast('단어를 먼저 입력하세요', true); return; }
+      dictBtn.textContent = '⏳'; dictBtn.disabled = true;
+      try {
+        const result = await dictSearch(term);
+        if (!result) showToast('검색 결과가 없어요', true);
+        else setAutoFill(result);
+      } catch { showToast('검색 중 오류가 발생했어요', true); }
+      finally { dictBtn.textContent = '🔍'; dictBtn.disabled = false; }
+    });
+    document.getElementById('wf-word').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.isComposing) dictBtn.click();
+    });
+  }
 
   document.getElementById('wf-cancel').onclick = () => { area.innerHTML = ''; };
   document.getElementById('wf-save').onclick = async () => {

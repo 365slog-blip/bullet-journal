@@ -604,7 +604,39 @@ h1,h2,h3,h4{font-family:var(--font-b);}
   .wt-btns{opacity:1;}
   .wt-row{cursor:pointer;}
   .wt-td-pos,.wt-td-ex,.wt-td-act{display:none;}
+  .wt-add-row{display:none;}
 }
+
+/* ── 인라인 추가 행 (데스크탑 전용) ─────────────────── */
+.wt-add-row td{
+  padding:6px 8px;
+  border-top:2px solid var(--accent);
+  background:var(--bg2);
+  vertical-align:middle;
+}
+.wi-word-cell{display:flex;gap:4px;align-items:center;}
+.wt-inp{
+  width:100%;background:transparent;border:none;
+  border-bottom:1px solid var(--border);
+  padding:4px 3px;font-size:.8rem;color:var(--text);
+  outline:none;min-width:0;box-sizing:border-box;
+}
+.wt-inp:focus{border-bottom-color:var(--accent);}
+.wt-inp option{background:var(--card);}
+.wi-dict-btn{
+  background:transparent;border:none;cursor:pointer;
+  font-size:.82rem;padding:2px 4px;color:var(--text3);
+  border-radius:4px;flex-shrink:0;white-space:nowrap;
+}
+.wi-dict-btn:hover{color:var(--accent);background:var(--aclt);}
+.wi-save-btn{
+  background:var(--accent);color:#fff;border:none;
+  border-radius:50%;width:28px;height:28px;
+  font-size:.88rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;margin:0 auto;
+  flex-shrink:0;
+}
+.wi-save-btn:hover{opacity:.82;}
 
 /* Flashcard */
 .flashcard-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 0;}
