@@ -538,38 +538,20 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 }
 .word-table input:focus,.word-table select:focus{border-bottom-color:var(--accent);}
 .word-add-row td{background:var(--aclt);}
-/* ── 단어 리스트 행 ───────────────────────────────────────── */
-#word-list-wrap{display:flex;flex-direction:column;margin-top:4px;}
-.word-row{
-  display:flex;align-items:flex-start;gap:10px;
-  padding:9px 10px;border-bottom:1px solid var(--border);
-  font-size:.83rem;position:relative;
+/* ── 단어 테이블 행 ───────────────────────────────────────── */
+.word-pos-badge{
+  font-size:.68rem;padding:1px 6px;border-radius:8px;white-space:nowrap;
+  background:var(--aclt);color:var(--accent);font-weight:600;
 }
-.word-row:last-child{border-bottom:none;}
-.word-row:hover{background:var(--bg2);}
-.word-row-main{
-  display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;flex:1;min-width:0;
-}
-.word-row-word{font-weight:700;color:var(--text);flex-shrink:0;}
-.word-row-pron{color:var(--text3);flex-shrink:0;}
-.word-row-mean{color:var(--text);flex:1;min-width:0;}
-.word-row-pos{
-  font-size:.68rem;padding:1px 6px;border-radius:8px;
-  background:var(--aclt);color:var(--accent);font-weight:600;flex-shrink:0;white-space:nowrap;
-}
-.word-row-ex{
-  display:flex;flex-direction:column;gap:1px;
-  color:var(--text3);font-size:.78rem;width:100%;
-  border-left:2px solid var(--border);padding-left:7px;margin-top:1px;
-}
-.word-row-exmean{color:var(--text3);font-size:.74rem;}
-.word-row-actions{
-  display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .15s;
-}
-.word-row:hover .word-row-actions{opacity:1;}
+.word-ex-cell{font-size:.78rem;color:var(--text3);}
+.word-exmean{font-size:.74rem;color:var(--text3);margin-top:2px;}
+.word-act-cell{width:1px;white-space:nowrap;vertical-align:middle;}
+.word-row-actions{display:flex;gap:2px;opacity:0;transition:opacity .15s;}
+.word-table tbody tr:hover .word-row-actions{opacity:1;}
 @media(max-width:768px){
   .word-row-actions{opacity:1;}
-  .word-row-main{gap:4px 8px;}
+  /* 모바일: 테이블 가로 스크롤 */
+  .word-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 }
 .memo-badge{
   display:inline-block;padding:2px 7px;border-radius:8px;font-size:.7rem;cursor:pointer;

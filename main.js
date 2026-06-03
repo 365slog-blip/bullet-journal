@@ -1137,7 +1137,15 @@ function renderWords(body) {
         <button class="btn-primary" style="font-size:.82rem;padding:7px 14px" id="add-word-btn">+ 단어</button>
       </div>
     </div>
-    <div id="word-list-wrap"></div>
+    <div class="word-table-wrap">
+      <table class="word-table">
+        <thead><tr>
+          <th>단어</th><th>읽는법</th><th>뜻</th><th>품사</th><th>예문</th><th></th>
+        </tr></thead>
+        <tbody id="word-tbody"></tbody>
+      </table>
+    </div>
+    <div id="word-list-wrap" style="display:none"></div>
     <div id="word-form-area"></div>
   `;
 
@@ -1161,8 +1169,8 @@ function renderWords(body) {
 }
 
 function renderWordTable(body, search) {
-  const wrap = document.getElementById('word-list-wrap');
-  if (!wrap) return;
+  const tbody = document.getElementById('word-tbody');
+  if (!tbody) return;
   let list = getWordsForLang();
   if (S.wordFilter && S.wordFilter !== 'all') {
     list = list.filter(w => w.외웠는지 === S.wordFilter);
@@ -1172,28 +1180,26 @@ function renderWordTable(body, search) {
     list = list.filter(w => w.단어.toLowerCase().includes(q) || w.뜻.includes(q));
   }
 
-  const tagCls = { '알아요':'tag-know', '헷갈려요':'tag-unsure', '몰라요':'tag-dontknow' };
+  tbody.innerHTML = list.length ? list.map(w => `
+    <tr class="word-row" data-row="${w._row}">
+      <td><strong>${w.단어}</strong></td>
+      <td style="color:var(--text3)">${w.읽는법||''}</td>
+      <td>${w.뜻}</td>
+      <td>${w.품사 ? `<span class="word-pos-badge">${w.품사}</span>` : ''}</td>
+      <td class="word-ex-cell">
+        ${w.예문 ? `<div>${w.예문}</div>` : ''}
+        ${w.예문해석 ? `<div class="word-exmean">${w.예문해석}</div>` : ''}
+      </td>
+      <td class="word-act-cell">
+        <div class="word-row-actions">
+          <button class="task-edit-btn word-save-btn" data-row="${w._row}" title="수정">✎</button>
+          <button class="task-edit-btn word-del-btn" data-row="${w._row}" title="삭제" style="color:var(--danger)">✕</button>
+        </div>
+      </td>
+    </tr>`
+  ).join('') : `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">단어가 없습니다</td></tr>`;
 
-  wrap.innerHTML = list.length ? list.map(w => `
-    <div class="word-row" data-row="${w._row}">
-      <div class="word-row-main">
-        <span class="word-row-word">${w.단어}</span>
-        ${w.읽는법 ? `<span class="word-row-pron">${w.읽는법}</span>` : ''}
-        <span class="word-row-mean">${w.뜻}</span>
-        ${w.품사 ? `<span class="word-row-pos">${w.품사}</span>` : ''}
-        ${w.예문 ? `<span class="word-row-ex">
-          <span>${w.예문}</span>
-          ${w.예문해석 ? `<span class="word-row-exmean">${w.예문해석}</span>` : ''}
-        </span>` : ''}
-      </div>
-      <div class="word-row-actions">
-        <button class="task-edit-btn word-save-btn" data-row="${w._row}" title="수정">✎</button>
-        <button class="task-edit-btn word-del-btn" data-row="${w._row}" title="삭제" style="color:var(--danger)">✕</button>
-      </div>
-    </div>`
-  ).join('') : `<p style="text-align:center;padding:24px;color:var(--text3);font-size:.85rem">단어가 없습니다</p>`;
-
-  wrap.querySelectorAll('.word-del-btn').forEach(b =>
+  tbody.querySelectorAll('.word-del-btn').forEach(b =>
     b.addEventListener('click', () => {
       const row = +b.dataset.row;
       confirmAction('단어를 삭제하시겠습니까?', async () => {
@@ -1204,7 +1210,7 @@ function renderWordTable(body, search) {
       });
     })
   );
-  wrap.querySelectorAll('.word-save-btn').forEach(b =>
+  tbody.querySelectorAll('.word-save-btn').forEach(b =>
     b.addEventListener('click', () => {
       const word = S.words.find(w => w._row === +b.dataset.row);
       if (word) showWordForm(body, word);
