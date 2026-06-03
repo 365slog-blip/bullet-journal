@@ -1288,127 +1288,106 @@ function deleteFolderConfirm(folderName, body) {
   });
 }
 
-// ── 단어장 PDF 저장 ─────────────────────────────────
-let _pdfFontB64 = null;   // null=미로드, ''=실패, 문자열=성공
-
-async function _loadPdfFont() {
-  if (_pdfFontB64 !== null) return _pdfFontB64;
-  try {
-    const ctrl = new AbortController();
-    const tid  = setTimeout(() => ctrl.abort(), 10000);
-    const resp = await fetch(
-      'https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_korean@1.0/NanumGothic.ttf',
-      { signal: ctrl.signal }
-    );
-    clearTimeout(tid);
-    if (!resp.ok) throw new Error('fetch failed');
-    const buf   = await resp.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    const chunk = 8192;
-    const parts = [];
-    for (let i = 0; i < bytes.length; i += chunk)
-      parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunk)));
-    _pdfFontB64 = btoa(parts.join(''));
-  } catch (e) {
-    _pdfFontB64 = '';   // 실패 — fallback 폰트 사용
-  }
-  return _pdfFontB64;
+// ── 단어장 PDF 저장 (html2canvas 방식) ───────────────
+function _esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 async function downloadWordPdf() {
-  if (!window.jspdf) { showToast('PDF 라이브러리 로딩 중입니다. 잠시 후 다시 시도해 주세요', true); return; }
+  if (!window.jspdf)      { showToast('PDF 라이브러리 로딩 중...', true); return; }
+  if (!window.html2canvas){ showToast('PDF 라이브러리 로딩 중...', true); return; }
 
-  // 현재 필터·검색 상태 그대로 사용
   let list = getWordsForLang();
   if (S.wordFilter && S.wordFilter !== 'all')
     list = list.filter(w => w.외웠는지 === S.wordFilter);
   const searchQ = document.getElementById('word-search')?.value.toLowerCase() || '';
   if (searchQ)
     list = list.filter(w => w.단어.toLowerCase().includes(searchQ) || w.뜻.includes(searchQ));
-
   if (!list.length) { showToast('저장할 단어가 없습니다', true); return; }
 
   const btn = document.getElementById('pdf-word-btn');
   if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
 
-  try {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ format: 'a5', orientation: 'portrait' });
+  // A5 = 148mm × 210mm → 559px × 794px at 96dpi
+  const A5W_PX = 559;
+  const MARGIN_PX = 38;  // ≈ 10mm
+  const today     = todayStr();
+  const filterLbl = (S.wordFilter && S.wordFilter !== 'all') ? ` [${S.wordFilter}]` : '';
 
-    // 한국어/일본어 폰트 로드 시도
-    const fontB64 = await _loadPdfFont();
-    let usedFont  = 'helvetica';
-    if (fontB64) {
-      try {
-        doc.addFileToVFS('NanumGothic.ttf', fontB64);
-        doc.addFont('NanumGothic.ttf', 'NanumGothic', 'normal');
-        doc.setFont('NanumGothic');
-        usedFont = 'NanumGothic';
-      } catch (e) { /* fallback */ }
+  // 컬럼 너비 (px): # 19 / 단어 94 / 읽는법 94 / 뜻 113 / 품사 57 / 예문 나머지
+  const usableW = A5W_PX - MARGIN_PX * 2;  // 483px
+  const rows = list.map((w, i) => `
+    <tr style="border-bottom:0.4px solid #e8e8e8;background:${i%2===1?'#f9f9f9':'#fff'}">
+      <td style="text-align:center;padding:2px 2px;color:#bbb;font-size:6.5px">${i+1}</td>
+      <td style="padding:2px 3px;font-weight:500;word-break:break-all">${_esc(w.단어)}</td>
+      <td style="padding:2px 3px;color:#555;word-break:break-all">${_esc(w.읽는법)}</td>
+      <td style="padding:2px 3px;word-break:break-word">${_esc(w.뜻)}</td>
+      <td style="padding:2px 3px;color:#777;font-size:6.5px">${_esc(w.품사)}</td>
+      <td style="padding:2px 3px;color:#555;word-break:break-word">${_esc(w.예문)}</td>
+    </tr>`).join('');
+
+  const container = document.createElement('div');
+  container.style.cssText = `position:fixed;left:-9999px;top:0;width:${A5W_PX}px;background:#fff;box-sizing:border-box;padding:${MARGIN_PX}px;font-family:'Noto Sans KR','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif`;
+  container.innerHTML = `
+    <div style="margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:3px;color:#222">${_esc(S.lang)} 단어장${_esc(filterLbl)}</div>
+      <div style="font-size:6.5px;color:#999">${today} · ${list.length}개</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:8px;table-layout:fixed">
+      <colgroup>
+        <col style="width:19px"><col style="width:94px"><col style="width:94px">
+        <col style="width:113px"><col style="width:57px"><col>
+      </colgroup>
+      <thead>
+        <tr style="border-bottom:0.7px solid #aaa">
+          <th style="text-align:center;padding:3px 2px;color:#666;font-weight:600;font-size:6.5px">#</th>
+          <th style="text-align:left;padding:3px 2px;color:#666;font-weight:600;font-size:6.5px">단어</th>
+          <th style="text-align:left;padding:3px 2px;color:#666;font-weight:600;font-size:6.5px">읽는법</th>
+          <th style="text-align:left;padding:3px 2px;color:#666;font-weight:600;font-size:6.5px">뜻</th>
+          <th style="text-align:left;padding:3px 2px;color:#666;font-weight:600;font-size:6.5px">품사</th>
+          <th style="text-align:left;padding:3px 2px;color:#666;font-weight:600;font-size:6.5px">예문</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  document.body.appendChild(container);
+
+  try {
+    await document.fonts.ready;
+    const canvas = await html2canvas(container, {
+      scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
+    });
+    document.body.removeChild(container);
+
+    const { jsPDF } = window.jspdf;
+    const doc    = new jsPDF({ format: 'a5', orientation: 'portrait', unit: 'mm' });
+    const pdfW   = doc.internal.pageSize.getWidth();
+    const pdfH   = doc.internal.pageSize.getHeight();
+    const imgW   = canvas.width;
+    const imgH   = canvas.height;
+    const pageH_px = Math.round(imgW * (pdfH / pdfW));
+
+    let yOffset = 0, first = true;
+    while (yOffset < imgH) {
+      const sliceH   = Math.min(pageH_px, imgH - yOffset);
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width  = imgW;
+      pageCanvas.height = pageH_px;
+      const ctx = pageCanvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, imgW, pageH_px);
+      ctx.drawImage(canvas, 0, yOffset, imgW, sliceH, 0, 0, imgW, sliceH);
+      if (!first) doc.addPage();
+      doc.addImage(pageCanvas.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, pdfW, pdfH);
+      first = false;
+      yOffset += pageH_px;
     }
 
-    const today      = todayStr();
-    const title      = `${S.lang} 단어장`;
-    const filterLbl  = (S.wordFilter && S.wordFilter !== 'all') ? ` [${S.wordFilter}]` : '';
-
-    // ── 헤더 ──────────────────────────────────────────
-    doc.setFontSize(16);
-    doc.text(title + filterLbl, 14, 18);
-    doc.setFontSize(8.5);
-    doc.setTextColor(130, 110, 100);
-    doc.text(`생성일 ${today}  ·  총 ${list.length}개`, 14, 25.5);
-    doc.setTextColor(0);
-
-    // ── 테이블 ────────────────────────────────────────
-    doc.autoTable({
-      startY: 31,
-      head: [['#', '단어', '읽는법', '뜻', '품사', '예문']],
-      body: list.map((w, i) => [
-        String(i + 1),
-        w.단어      || '',
-        w.읽는법    || '',
-        w.뜻        || '',
-        w.품사      || '',
-        w.예문      || '',
-      ]),
-      styles: {
-        font:        usedFont,
-        fontSize:    7.5,
-        cellPadding: { top: 2.5, right: 3, bottom: 2.5, left: 3 },
-        lineColor:   [210, 200, 195],
-        lineWidth:   0,
-        overflow:    'linebreak',
-        textColor:   [40, 30, 25],
-      },
-      headStyles: {
-        fillColor:  false,
-        textColor:  [100, 75, 60],
-        fontStyle:  'bold',
-        lineColor:  [180, 155, 140],
-        lineWidth:  { bottom: 0.45 },
-      },
-      bodyStyles: {
-        lineWidth: { bottom: 0.2 },
-        lineColor: [220, 210, 205],
-      },
-      alternateRowStyles: {
-        fillColor: [252, 249, 247],
-      },
-      tableLineWidth: 0,
-      columnStyles: {
-        0: { cellWidth:  7,    halign: 'center' },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 34 },
-        4: { cellWidth: 13 },
-        5: { cellWidth: 'auto' },
-      },
-    });
-
-    // ── 저장 ──────────────────────────────────────────
     doc.save(`${S.lang}_단어장_${today}.pdf`);
     showToast('PDF 저장됨');
   } catch (e) {
+    if (document.body.contains(container)) document.body.removeChild(container);
     console.error('[PDF]', e);
     showToast('PDF 생성 실패: ' + e.message, true);
   } finally {
