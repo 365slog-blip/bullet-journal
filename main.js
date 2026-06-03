@@ -1994,6 +1994,14 @@ function renderStats() {
   const duo  = S.duolingo.filter(d => d.날짜.startsWith(ms));
   const sorted = [...S.routineSettings].sort((a, b) => +a.순서 - +b.순서);
 
+  // 뽀모도로 집계
+  const pomoRecs  = S.pomodoroRecords.filter(r => r.날짜.startsWith(ms));
+  const pomoTotal = pomoRecs.length;
+  const pomoMins  = pomoRecs.reduce((sum, r) => sum + (+r.집중시간 || 0), 0);
+  const pomoByDay = {};
+  pomoRecs.forEach(r => { const d = +r.날짜.split('-')[2]; pomoByDay[d] = (pomoByDay[d]||0)+1; });
+  const pomoMaxDay = Math.max(1, ...Object.values(pomoByDay));
+
   // Build date array for the month
   const days = Array.from({length: dim}, (_, i) => {
     const d = i + 1;
@@ -2028,12 +2036,19 @@ function renderStats() {
           }).join('') || '<p style="color:var(--text3);font-size:.82rem">루틴 없음</p>'}
         </div>
       </div>
-      <div class="stats-section" style="margin-bottom:0">
-        <div class="stats-section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <div class="stats-section stats-right-col" style="margin-bottom:0">
+        <div class="stats-section-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           체중 변화
           <button class="btn-sm" id="weight-toggle-btn">${_weightVisible ? '숨기기' : '보기'}</button>
         </div>
         <div id="weight-chart-wrap" class="${_weightVisible ? '' : 'weight-blurred'}"></div>
+        <div class="stats-divider"></div>
+        <div class="stats-section-title" style="margin-bottom:8px">🍅 뽀모도로</div>
+        <div class="pomo-stat-summary">
+          <span class="pomo-stat-num">${pomoTotal}<em>회</em></span>
+          <span class="pomo-stat-num">${pomoMins}<em>분</em></span>
+        </div>
+        <div id="pomo-stat-chart"></div>
       </div>
     </div>
     <div class="stats-section">
@@ -2062,13 +2077,14 @@ function renderStats() {
     document.getElementById('weight-chart-wrap').classList.toggle('weight-blurred', !_weightVisible);
   });
 
+  // 체중 차트 (높이 절반)
   const wrap = document.getElementById('weight-chart-wrap');
   if (!wPts.length) {
     wrap.innerHTML = '<p style="color:var(--text3);font-size:.82rem">체중 기록 없음</p>';
   } else {
     const pts = wPts.map(r => ({ day: +r.날짜.split('-')[2], val: parseFloat(r.값) }))
       .sort((a, b) => a.day - b.day);
-    const W = 300, H = 220, P = 28;
+    const W = 300, H = 110, P = 16;
     const minV = Math.min(...pts.map(p=>p.val)) - 0.5;
     const maxV = Math.max(...pts.map(p=>p.val)) + 0.5;
     const tx = d => P + (d-1) / (dim-1||1) * (W - P*2);
@@ -2077,10 +2093,34 @@ function renderStats() {
       <polyline points="${pts.map(p=>`${tx(p.day)},${ty(p.val)}`).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
       ${pts.map(p=>`
         <circle cx="${tx(p.day)}" cy="${ty(p.val)}" r="3" fill="var(--accent)"/>
-        <text x="${tx(p.day)}" y="${ty(p.val)-7}" font-size="8" text-anchor="middle" fill="var(--text)">${p.val}</text>
+        <text x="${tx(p.day)}" y="${ty(p.val)-5}" font-size="7" text-anchor="middle" fill="var(--text)">${p.val}</text>
       `).join('')}
-      <text x="${P}" y="${H-4}" font-size="8" fill="var(--text3)">1일</text>
-      <text x="${W-P}" y="${H-4}" font-size="8" text-anchor="end" fill="var(--text3)">${dim}일</text>
+      <text x="${P}" y="${H-3}" font-size="7" fill="var(--text3)">1일</text>
+      <text x="${W-P}" y="${H-3}" font-size="7" text-anchor="end" fill="var(--text3)">${dim}일</text>
+    </svg>`;
+  }
+
+  // 뽀모도로 바 차트
+  const pomoWrap = document.getElementById('pomo-stat-chart');
+  if (!pomoRecs.length) {
+    pomoWrap.innerHTML = '<p style="color:var(--text3);font-size:.82rem;margin-top:4px">기록 없음</p>';
+  } else {
+    const W = 300, H = 100, P = 14;
+    const bw  = Math.max(2, (W - P * 2) / dim * 0.7);
+    const bars = Array.from({ length: dim }, (_, i) => {
+      const day = i + 1;
+      const cnt = pomoByDay[day] || 0;
+      if (!cnt) return '';
+      const x   = P + i / (dim - 1 || 1) * (W - P * 2);
+      const bh  = (cnt / pomoMaxDay) * (H - P - 10);
+      const y   = H - P - bh;
+      return `<rect x="${x - bw/2}" y="${y}" width="${bw}" height="${bh}" rx="2" fill="var(--accent)" opacity=".85"/>
+        ${cnt > 1 ? `<text x="${x}" y="${y-3}" font-size="7" text-anchor="middle" fill="var(--accent)">${cnt}</text>` : ''}`;
+    }).join('');
+    pomoWrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="weight-chart-svg">
+      ${bars}
+      <text x="${P}" y="${H-3}" font-size="7" fill="var(--text3)">1일</text>
+      <text x="${W-P}" y="${H-3}" font-size="7" text-anchor="end" fill="var(--text3)">${dim}일</text>
     </svg>`;
   }
 }

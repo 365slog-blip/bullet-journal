@@ -1092,13 +1092,23 @@ h1,h2,h3,h4{font-family:var(--font-b);}
   align-items:stretch;
   margin-bottom:16px;
 }
-/* weight chart section fills height of routine section */
-.stats-top-grid > .stats-section:last-child{
-  display:flex;flex-direction:column;
-}
+/* 우측 컬럼: 체중 + 뽀모도로 */
+.stats-right-col{display:flex;flex-direction:column;}
 #weight-chart-wrap{
-  flex:1;display:flex;align-items:center;justify-content:center;min-height:80px;
+  flex:none;display:flex;align-items:center;justify-content:center;min-height:40px;
 }
+.stats-divider{border-top:1px solid var(--border);margin:12px 0 10px;}
+.pomo-stat-summary{
+  display:flex;gap:16px;margin-bottom:8px;
+}
+.pomo-stat-num{
+  font-size:1.15rem;font-weight:700;color:var(--accent);
+}
+.pomo-stat-num em{
+  font-style:normal;font-size:.72rem;font-weight:400;
+  color:var(--text3);margin-left:2px;
+}
+#pomo-stat-chart{flex:none;}
 
 /* ── STATS DATE GRID ─────────────────────────────────────── */
 .stat-routine-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
