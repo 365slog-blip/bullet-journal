@@ -1121,6 +1121,134 @@ function getWordsForLang() {
   return S.words.filter(w => w.언어 === S.lang);
 }
 
+// ── 단어장 PDF 저장 ─────────────────────────────────
+let _pdfFontB64 = null;   // null=미로드, ''=실패, 문자열=성공
+
+async function _loadPdfFont() {
+  if (_pdfFontB64 !== null) return _pdfFontB64;
+  try {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 10000);
+    const resp = await fetch(
+      'https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_korean@1.0/NanumGothic.ttf',
+      { signal: ctrl.signal }
+    );
+    clearTimeout(tid);
+    if (!resp.ok) throw new Error('fetch failed');
+    const buf   = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    const chunk = 8192;
+    const parts = [];
+    for (let i = 0; i < bytes.length; i += chunk)
+      parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunk)));
+    _pdfFontB64 = btoa(parts.join(''));
+  } catch (e) {
+    _pdfFontB64 = '';   // 실패 — fallback 폰트 사용
+  }
+  return _pdfFontB64;
+}
+
+async function downloadWordPdf() {
+  if (!window.jspdf) { showToast('PDF 라이브러리 로딩 중입니다. 잠시 후 다시 시도해 주세요', true); return; }
+
+  // 현재 필터·검색 상태 그대로 사용
+  let list = getWordsForLang();
+  if (S.wordFilter && S.wordFilter !== 'all')
+    list = list.filter(w => w.외웠는지 === S.wordFilter);
+  const searchQ = document.getElementById('word-search')?.value.toLowerCase() || '';
+  if (searchQ)
+    list = list.filter(w => w.단어.toLowerCase().includes(searchQ) || w.뜻.includes(searchQ));
+
+  if (!list.length) { showToast('저장할 단어가 없습니다', true); return; }
+
+  const btn = document.getElementById('pdf-word-btn');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ format: 'a5', orientation: 'portrait' });
+
+    // 한국어/일본어 폰트 로드 시도
+    const fontB64 = await _loadPdfFont();
+    let usedFont  = 'helvetica';
+    if (fontB64) {
+      try {
+        doc.addFileToVFS('NanumGothic.ttf', fontB64);
+        doc.addFont('NanumGothic.ttf', 'NanumGothic', 'normal');
+        doc.setFont('NanumGothic');
+        usedFont = 'NanumGothic';
+      } catch (e) { /* fallback */ }
+    }
+
+    const today      = todayStr();
+    const title      = `${S.lang} 단어장`;
+    const filterLbl  = (S.wordFilter && S.wordFilter !== 'all') ? ` [${S.wordFilter}]` : '';
+
+    // ── 헤더 ──────────────────────────────────────────
+    doc.setFontSize(16);
+    doc.text(title + filterLbl, 14, 18);
+    doc.setFontSize(8.5);
+    doc.setTextColor(130, 110, 100);
+    doc.text(`생성일 ${today}  ·  총 ${list.length}개`, 14, 25.5);
+    doc.setTextColor(0);
+
+    // ── 테이블 ────────────────────────────────────────
+    doc.autoTable({
+      startY: 31,
+      head: [['#', '단어', '읽는법', '뜻', '품사', '예문']],
+      body: list.map((w, i) => [
+        String(i + 1),
+        w.단어      || '',
+        w.읽는법    || '',
+        w.뜻        || '',
+        w.품사      || '',
+        w.예문      || '',
+      ]),
+      styles: {
+        font:        usedFont,
+        fontSize:    7.5,
+        cellPadding: { top: 2.5, right: 3, bottom: 2.5, left: 3 },
+        lineColor:   [210, 200, 195],
+        lineWidth:   0,
+        overflow:    'linebreak',
+        textColor:   [40, 30, 25],
+      },
+      headStyles: {
+        fillColor:  false,
+        textColor:  [100, 75, 60],
+        fontStyle:  'bold',
+        lineColor:  [180, 155, 140],
+        lineWidth:  { bottom: 0.45 },
+      },
+      bodyStyles: {
+        lineWidth: { bottom: 0.2 },
+        lineColor: [220, 210, 205],
+      },
+      alternateRowStyles: {
+        fillColor: [252, 249, 247],
+      },
+      tableLineWidth: 0,
+      columnStyles: {
+        0: { cellWidth:  7,    halign: 'center' },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 34 },
+        4: { cellWidth: 13 },
+        5: { cellWidth: 'auto' },
+      },
+    });
+
+    // ── 저장 ──────────────────────────────────────────
+    doc.save(`${S.lang}_단어장_${today}.pdf`);
+    showToast('PDF 저장됨');
+  } catch (e) {
+    console.error('[PDF]', e);
+    showToast('PDF 생성 실패: ' + e.message, true);
+  } finally {
+    if (btn) { btn.textContent = '⬇ PDF'; btn.disabled = false; }
+  }
+}
+
 function renderWords(body) {
   if (S.flashMode) { renderFlashCard(body); return; }
 
@@ -1138,6 +1266,7 @@ function renderWords(body) {
       </div>
       <div style="display:flex;gap:8px;margin-left:auto;flex-shrink:0">
         <button class="btn-outline-sm" id="flash-btn">플래시카드</button>
+        <button class="btn-outline-sm" id="pdf-word-btn" title="PDF 저장">⬇ PDF</button>
         <button class="btn-primary" style="font-size:.82rem;padding:7px 14px" id="add-word-btn">+ 단어</button>
       </div>
     </div>
@@ -1188,6 +1317,7 @@ function renderWords(body) {
   document.getElementById('flash-btn').onclick = () => {
     S.flashMode = true; S.flashIdx = 0; S.flashFlipped = false; renderLangBody();
   };
+  document.getElementById('pdf-word-btn').onclick = () => downloadWordPdf();
   document.getElementById('add-word-btn').onclick = () => showWordForm(body, null);
   const searchEl = document.getElementById('word-search');
   searchEl.addEventListener('input', e => renderWordTable(body, e.target.value));
