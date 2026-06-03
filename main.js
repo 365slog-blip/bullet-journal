@@ -1655,6 +1655,7 @@ function renderWordTable(body, search) {
   tbody.querySelectorAll('.wt-row').forEach(row => {
     row.addEventListener('click', e => {
       if (e.target.closest('.wt-btns') || e.target.classList.contains('wt-chk')) return;
+      if (window.innerWidth > 768) return;
       const det = tbody.querySelector(`.wt-det[data-for="${row.dataset.row}"]`);
       if (det) det.classList.toggle('wt-expanded');
     });
