@@ -53,6 +53,19 @@ async function sheetsUpdate(sheetName, rowNum, row) {
   return r.json();
 }
 
+async function sheetsUpdateCell(sheetName, cell, value) {
+  const h = authHeaders();
+  if (!h) { showToast('로그인이 필요합니다', true); return null; }
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CFG.SHEET_ID}/values/${encodeURIComponent(cell)}?valueInputOption=RAW`;
+  const r = await fetch(url, {
+    method: 'PUT',
+    headers: { ...h, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [[value]] }),
+  });
+  if (!r.ok) throw new Error('셀 업데이트 실패');
+  return r.json();
+}
+
 async function sheetsDelete(sheetName, rowNum) {
   const h = authHeaders();
   if (!h) { showToast('로그인이 필요합니다', true); return null; }

@@ -1227,8 +1227,7 @@ async function moveSelectedWords(body) {
       if (!folders.includes(val)) folders.push(val);
       const newFolderStr = folders.join(',');
       word.폴더 = newFolderStr;
-      const row = [word.언어, word.단어, word.읽는법||'', word.뜻, word.품사||'', word.예문||'', word.예문해석||'', word.외웠는지||'', newFolderStr];
-      return sheetsUpdate('단어장', rowNum, row);
+      return sheetsUpdateCell('단어장', `단어장!I${rowNum}`, newFolderStr);
     }));
     const usedFolders = new Set(getWordsForLang().flatMap(w => _wordFolders(w)));
     S.wordPendingFolders = S.wordPendingFolders.filter(f => !usedFolders.has(f));
@@ -1254,8 +1253,7 @@ async function removeSelectedFromFolder(body) {
       if (!word) return;
       const newFolderStr = _wordFolders(word).filter(f => f !== val).join(',');
       word.폴더 = newFolderStr;
-      const row = [word.언어, word.단어, word.읽는법||'', word.뜻, word.품사||'', word.예문||'', word.예문해석||'', word.외웠는지||'', newFolderStr];
-      return sheetsUpdate('단어장', rowNum, row);
+      return sheetsUpdateCell('단어장', `단어장!I${rowNum}`, newFolderStr);
     }));
     S.wordChecked = new Set();
     renderFolderBar(body);
@@ -1277,8 +1275,7 @@ function deleteFolderConfirm(folderName, body) {
         await Promise.all(wordsInFolder.map(word => {
           const remaining = _wordFolders(word).filter(f => f !== folderName).join(',');
           word.폴더 = remaining;
-          const row = [word.언어, word.단어, word.읽는법||'', word.뜻, word.품사||'', word.예문||'', word.예문해석||'', word.외웠는지||'', remaining];
-          return sheetsUpdate('단어장', word._row, row);
+          return sheetsUpdateCell('단어장', `단어장!I${word._row}`, remaining);
         }));
       } catch { showToast('삭제 중 오류', true); return; }
     }
