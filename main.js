@@ -1123,9 +1123,15 @@ function getWordsForLang() {
 }
 
 function getFolderList() {
-  const fromData = [...new Set(getWordsForLang().map(w => w.폴더).filter(Boolean))];
-  const pending  = S.wordPendingFolders.filter(f => !fromData.includes(f));
+  const fromData = [...new Set(
+    getWordsForLang().flatMap(w => (w.폴더||'').split(',').map(f => f.trim()).filter(Boolean))
+  )];
+  const pending = S.wordPendingFolders.filter(f => !fromData.includes(f));
   return [...fromData, ...pending];
+}
+
+function _wordFolders(word) {
+  return (word.폴더||'').split(',').map(f => f.trim()).filter(Boolean);
 }
 
 function renderFolderBar(body) {
@@ -1202,8 +1208,7 @@ function updateMoveBar(body) {
   if (sel) {
     const folders = getFolderList();
     sel.innerHTML = `<option value="">폴더 선택</option>` +
-      folders.map(f => `<option value="${f}">${f}</option>`).join('') +
-      `<option value="__none__">폴더 없음</option>`;
+      folders.map(f => `<option value="${f}">${f}</option>`).join('');
   }
 }
 
@@ -1211,7 +1216,6 @@ async function moveSelectedWords(body) {
   const sel = document.getElementById('word-move-folder-sel');
   const val = sel?.value;
   if (!val) { showToast('폴더를 선택하세요', true); return; }
-  const folder = val === '__none__' ? '' : val;
   const rowNums = [...S.wordChecked];
   const btn = document.getElementById('word-move-do');
   if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
@@ -1219,32 +1223,61 @@ async function moveSelectedWords(body) {
     await Promise.all(rowNums.map(rowNum => {
       const word = S.words.find(w => w._row === rowNum);
       if (!word) return;
-      const row = [word.언어, word.단어, word.읽는법||'', word.뜻, word.품사||'', word.예문||'', word.예문해석||'', word.외웠는지||'', folder];
-      word.폴더 = folder;
+      const folders = _wordFolders(word);
+      if (!folders.includes(val)) folders.push(val);
+      const newFolderStr = folders.join(',');
+      word.폴더 = newFolderStr;
+      const row = [word.언어, word.단어, word.읽는법||'', word.뜻, word.품사||'', word.예문||'', word.예문해석||'', word.외웠는지||'', newFolderStr];
       return sheetsUpdate('단어장', rowNum, row);
     }));
-    const usedFolders = new Set(getWordsForLang().map(w => w.폴더).filter(Boolean));
-    S.wordPendingFolders = S.wordPendingFolders.filter(f => !usedFolders.has(f) && getFolderList().includes(f));
+    const usedFolders = new Set(getWordsForLang().flatMap(w => _wordFolders(w)));
+    S.wordPendingFolders = S.wordPendingFolders.filter(f => !usedFolders.has(f));
     S.wordChecked = new Set();
     renderFolderBar(body);
     renderWordTable(body, document.getElementById('word-search')?.value || '');
     updateMoveBar(body);
-    showToast(`${rowNums.length}개 단어 이동됨`);
-  } catch { showToast('이동 실패', true); }
-  finally { if (btn) { btn.textContent = '이동'; btn.disabled = false; } }
+    showToast(`${rowNums.length}개 단어를 "${val}" 폴더에 추가했어요`);
+  } catch { showToast('추가 실패', true); }
+  finally { if (btn) { btn.textContent = '추가'; btn.disabled = false; } }
+}
+
+async function removeSelectedFromFolder(body) {
+  const sel = document.getElementById('word-move-folder-sel');
+  const val = sel?.value;
+  if (!val) { showToast('폴더를 선택하세요', true); return; }
+  const rowNums = [...S.wordChecked];
+  const btn = document.getElementById('word-move-remove');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    await Promise.all(rowNums.map(rowNum => {
+      const word = S.words.find(w => w._row === rowNum);
+      if (!word) return;
+      const newFolderStr = _wordFolders(word).filter(f => f !== val).join(',');
+      word.폴더 = newFolderStr;
+      const row = [word.언어, word.단어, word.읽는법||'', word.뜻, word.품사||'', word.예문||'', word.예문해석||'', word.외웠는지||'', newFolderStr];
+      return sheetsUpdate('단어장', rowNum, row);
+    }));
+    S.wordChecked = new Set();
+    renderFolderBar(body);
+    renderWordTable(body, document.getElementById('word-search')?.value || '');
+    updateMoveBar(body);
+    showToast(`${rowNums.length}개 단어를 "${val}" 폴더에서 제거했어요`);
+  } catch { showToast('제거 실패', true); }
+  finally { if (btn) { btn.textContent = '제거'; btn.disabled = false; } }
 }
 
 function deleteFolderConfirm(folderName, body) {
-  const wordsInFolder = getWordsForLang().filter(w => w.폴더 === folderName);
+  const wordsInFolder = getWordsForLang().filter(w => _wordFolders(w).includes(folderName));
   const msg = wordsInFolder.length > 0
-    ? `"${folderName}" 폴더를 삭제하면 ${wordsInFolder.length}개 단어가 폴더 없음 상태가 됩니다. 계속할까요?`
+    ? `"${folderName}" 폴더를 삭제하면 ${wordsInFolder.length}개 단어에서 이 폴더가 제거됩니다. 계속할까요?`
     : `"${folderName}" 폴더를 삭제할까요?`;
   confirmAction(msg, async () => {
     if (wordsInFolder.length > 0) {
       try {
         await Promise.all(wordsInFolder.map(word => {
-          const row = [word.언어, word.단어, word.읽는법||'', word.뜻, word.품사||'', word.예문||'', word.예문해석||'', word.외웠는지||'', ''];
-          word.폴더 = '';
+          const remaining = _wordFolders(word).filter(f => f !== folderName).join(',');
+          word.폴더 = remaining;
+          const row = [word.언어, word.단어, word.읽는법||'', word.뜻, word.품사||'', word.예문||'', word.예문해석||'', word.외웠는지||'', remaining];
           return sheetsUpdate('단어장', word._row, row);
         }));
       } catch { showToast('삭제 중 오류', true); return; }
@@ -1455,7 +1488,8 @@ function renderWords(body) {
       <span id="word-move-label">0개 선택됨</span>
       <span>→</span>
       <select id="word-move-folder-sel" class="wt-inp" style="width:auto;min-width:100px"></select>
-      <button class="btn-primary" id="word-move-do" style="font-size:.78rem;padding:5px 12px">이동</button>
+      <button class="btn-primary" id="word-move-do" style="font-size:.78rem;padding:5px 12px">추가</button>
+      <button class="btn-outline" id="word-move-remove" style="font-size:.78rem;padding:5px 12px">제거</button>
       <button class="btn-outline" id="word-move-cancel" style="font-size:.78rem;padding:5px 12px">취소</button>
     </div>
     <div id="word-form-area"></div>
@@ -1481,6 +1515,7 @@ function renderWords(body) {
     })
   );
   document.getElementById('word-move-do').onclick = () => moveSelectedWords(body);
+  document.getElementById('word-move-remove').onclick = () => removeSelectedFromFolder(body);
   document.getElementById('word-move-cancel').onclick = () => {
     S.wordChecked = new Set();
     document.querySelectorAll('.wt-chk').forEach(c => c.checked = false);
@@ -1564,7 +1599,7 @@ function renderWordTable(body, search) {
 
   let list = getWordsForLang();
   if (S.wordFolder && S.wordFolder !== 'all')
-    list = list.filter(w => w.폴더 === S.wordFolder);
+    list = list.filter(w => _wordFolders(w).includes(S.wordFolder));
   if (S.wordFilter && S.wordFilter !== 'all')
     list = list.filter(w => w.외웠는지 === S.wordFilter);
   if (search) {
