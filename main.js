@@ -126,8 +126,7 @@ async function loadData() {
   S.calEvents       = parseRows(calRows, ['날짜', '내용', '색상']);
   S.projects        = parseRows(projRows, ['ID', '제목', '설명', '색상', '시작일', '종료일', '상태', '브레인스토밍']);
   S.projTasks       = parseRows(taskRows, ['프로젝트ID', '제목', '내용', '완료', '데드라인', '비고']);
-  // words: new columns include 한자, 발음, 예문해석
-  S.words           = parseRows(wordRows, ['언어', '단어', '한자', '뜻', '발음', '예문', '예문해석', '태그']);
+  S.words           = parseRows(wordRows, ['언어', '단어', '읽는법', '뜻', '품사', '예문', '예문해석', '외웠는지']);
   S.duolingo        = parseRows(duoRows,  ['날짜', '언어', 'XP', '스트릭']);
 
   const wCols = ['제목', '서브', '별점', '날짜', '내용', '이미지'];
@@ -1075,6 +1074,17 @@ function openProjectForm(proj) {
 }
 
 // ── LANGUAGE ──────────────────────────────────────────
+function _updateDuoTab() {
+  const duoTab = document.querySelector('.lstab[data-sub="duolingo"]');
+  if (!duoTab) return;
+  duoTab.style.display = S.lang === '영어' ? 'none' : '';
+  if (S.lang === '영어' && S.langSub === 'duolingo') {
+    S.langSub = 'words';
+    document.querySelectorAll('.lstab').forEach(x => x.classList.remove('active'));
+    document.querySelector('.lstab[data-sub="words"]').classList.add('active');
+  }
+}
+
 function initLangTab() {
   document.querySelectorAll('.lang-btn').forEach(b =>
     b.addEventListener('click', () => {
@@ -1084,6 +1094,7 @@ function initLangTab() {
       S.langSub = 'words'; S.flashMode = false;
       document.querySelectorAll('.lstab').forEach(x => x.classList.remove('active'));
       document.querySelector('.lstab[data-sub="words"]').classList.add('active');
+      _updateDuoTab();
       renderLangBody();
     })
   );
@@ -1154,44 +1165,36 @@ function renderWordTable(body, search) {
   if (!wrap) return;
   let list = getWordsForLang();
   if (S.wordFilter && S.wordFilter !== 'all') {
-    list = list.filter(w => w.태그 === S.wordFilter);
+    list = list.filter(w => w.외웠는지 === S.wordFilter);
   }
   if (search) {
     const q = search.toLowerCase();
     list = list.filter(w => w.단어.toLowerCase().includes(q) || w.뜻.includes(q));
   }
 
-  const tagClass = { '알아요':'tag-know', '헷갈려요':'tag-unsure', '몰라요':'tag-dontknow' };
+  const tagCls = { '알아요':'tag-know', '헷갈려요':'tag-unsure', '몰라요':'tag-dontknow' };
 
-  wrap.innerHTML = list.length ? list.map(w => {
-    // 품사: 뜻 형식이면 분리
-    const posMatch = w.뜻.match(/^([가-힣a-zA-Z\s·]{1,12}):\s*(.+)$/);
-    const pos  = posMatch ? posMatch[1].trim() : '';
-    const mean = posMatch ? posMatch[2].trim() : w.뜻;
-    return `
-    <div class="word-card" data-row="${w._row}">
-      <div class="word-card-top">
-        <span class="word-card-word">${w.단어}</span>
-        ${w.발음 ? `<span class="word-card-pron">${w.발음}</span>` : ''}
+  wrap.innerHTML = list.length ? list.map(w => `
+    <div class="word-row" data-row="${w._row}">
+      <div class="word-row-main">
+        <span class="word-row-word">${w.단어}</span>
+        ${w.읽는법 ? `<span class="word-row-pron">${w.읽는법}</span>` : ''}
+        <span class="word-row-mean">${w.뜻}</span>
+        ${w.품사 ? `<span class="word-row-pos">${w.품사}</span>` : ''}
+        ${w.예문 ? `<span class="word-row-ex">
+          <span>${w.예문}</span>
+          ${w.예문해석 ? `<span class="word-row-exmean">${w.예문해석}</span>` : ''}
+        </span>` : ''}
       </div>
-      <div class="word-card-mean">${mean}</div>
-      ${pos ? `<span class="word-card-pos">${pos}</span>` : ''}
-      ${w.예문 ? `<div class="word-card-ex-wrap">
-        <div class="word-card-ex">${w.예문}</div>
-        ${w.예문해석 ? `<div class="word-card-exmean">${w.예문해석}</div>` : ''}
-      </div>` : ''}
-      <div class="word-card-footer">
-        <span class="word-tag-chip ${tagClass[w.태그]||'tag-dontknow'}">${w.태그||'몰라요'}</span>
-        <div style="display:flex;gap:4px;margin-left:auto">
-          <button class="word-save-btn task-edit-btn" data-row="${w._row}" title="수정">✎</button>
-          <button class="word-del-btn task-edit-btn" data-row="${w._row}" title="삭제" style="color:var(--danger)">✕</button>
-        </div>
+      <div class="word-row-actions">
+        <button class="task-edit-btn word-save-btn" data-row="${w._row}" title="수정">✎</button>
+        <button class="task-edit-btn word-del-btn" data-row="${w._row}" title="삭제" style="color:var(--danger)">✕</button>
       </div>
-    </div>`;
-  }).join('') : `<p style="text-align:center;padding:24px;color:var(--text3);font-size:.85rem">단어가 없습니다</p>`;
+    </div>`
+  ).join('') : `<p style="text-align:center;padding:24px;color:var(--text3);font-size:.85rem">단어가 없습니다</p>`;
 
   wrap.querySelectorAll('.word-del-btn').forEach(b =>
-    b.addEventListener('click', async () => {
+    b.addEventListener('click', () => {
       const row = +b.dataset.row;
       confirmAction('단어를 삭제하시겠습니까?', async () => {
         await sheetsDelete('단어장', row);
@@ -1228,10 +1231,9 @@ async function dictSearch(term, lang) {
     const pos     = meaning?.partOfSpeech || '';
     const posKo   = posKoMap[pos] || pos;
     const def     = meaning?.definitions?.[0];
-    const defText = def?.definition || '';
+    const mean    = def?.definition || '';
     const ex      = def?.example   || '';
-    const mean    = posKo ? `${posKo}: ${defText}` : defText;
-    return { pron: phon, mean, ex, exmean: '', kanji: '' };
+    return { pron: phon, mean, pos: posKo, ex, exmean: '' };
   }
 
   if (lang === '일본어') {
@@ -1246,7 +1248,8 @@ async function dictSearch(term, lang) {
     const sense   = entry.senses?.[0] || {};
     const defs    = sense.english_definitions || [];
     const mean    = defs.join(', ');
-    return { pron: reading, mean, ex: '', exmean: '', kanji };
+    const jPos    = (sense.parts_of_speech || [])[0] || '';
+    return { pron: reading, mean, pos: jPos, ex: '', exmean: '' };
   }
 
   return null;
@@ -1256,9 +1259,9 @@ function showWordForm(body, word) {
   const isEdit  = !!word;
   const area    = document.getElementById('word-form-area');
   if (!area) return;
-  // 한자는 UI에서 숨기지만 시트 컬럼 유지용으로 변수에 보관
-  let _wfKanji  = isEdit ? (word.한자 || '') : '';
   const pronLbl = S.lang === '일본어' ? '읽는법(히라가나)' : '발음기호';
+  const posOpts = ['', '명사', '동사', '형용사', '부사', '기타'];
+  const curPos  = isEdit ? (word.품사 || '') : '';
 
   area.innerHTML = `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:14px;display:flex;flex-direction:column;gap:10px">
@@ -1271,12 +1274,16 @@ function showWordForm(body, word) {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div><label style="font-size:.72rem;color:var(--text3)">뜻 *</label>
-          <input class="form-input" id="wf-mean" value="${isEdit ? word.뜻 : ''}"></div>
         <div><label style="font-size:.72rem;color:var(--text3)">${pronLbl}</label>
-          <input class="form-input" id="wf-pron" value="${isEdit ? (word.발음 || '') : ''}"></div>
+          <input class="form-input" id="wf-pron" value="${isEdit ? (word.읽는법 || '') : ''}"></div>
+        <div><label style="font-size:.72rem;color:var(--text3)">품사</label>
+          <select class="form-input" id="wf-pos">
+            ${posOpts.map(p => `<option value="${p}"${curPos===p?' selected':''}>${p||'선택 안함'}</option>`).join('')}
+          </select></div>
       </div>
-      <div><label style="font-size:.72rem;color:var(--text3)">예문</label>
+      <div><label style="font-size:.72rem;color:var(--text3)">뜻 *</label>
+        <input class="form-input" id="wf-mean" value="${isEdit ? word.뜻 : ''}"></div>
+      <div><label style="font-size:.72rem;color:var(--text3)">예문 원문</label>
         <input class="form-input" id="wf-ex" value="${isEdit ? (word.예문 || '') : ''}"></div>
       <div><label style="font-size:.72rem;color:var(--text3)">예문 해석</label>
         <input class="form-input" id="wf-exmean" value="${isEdit ? (word.예문해석 || '') : ''}"></div>
@@ -1288,7 +1295,7 @@ function showWordForm(body, word) {
   `;
 
   const setAutoFill = result => {
-    ['wf-mean','wf-pron','wf-ex','wf-exmean'].forEach(id => {
+    ['wf-mean','wf-pron','wf-ex'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.classList.remove('wf-autofilled');
     });
@@ -1298,29 +1305,28 @@ function showWordForm(body, word) {
       el.value = val;
       el.classList.add('wf-autofilled');
     };
-    fill('wf-mean',   result.mean);
-    fill('wf-pron',   result.pron);
-    fill('wf-ex',     result.ex);
-    fill('wf-exmean', result.exmean);
-    if (result.kanji) _wfKanji = result.kanji;
+    fill('wf-mean', result.mean);
+    fill('wf-pron', result.pron);
+    fill('wf-ex',   result.ex);
+    // 품사: API 결과를 posOpts 목록에 맞춰 선택
+    if (result.pos) {
+      const sel = document.getElementById('wf-pos');
+      const match = posOpts.find(p => p && result.pos.includes(p));
+      if (match) { sel.value = match; sel.classList.add('wf-autofilled'); }
+    }
   };
 
   document.getElementById('wf-dict-search').addEventListener('click', async () => {
     const term = document.getElementById('wf-word').value.trim();
     if (!term) { showToast('단어를 먼저 입력하세요', true); return; }
     const btn = document.getElementById('wf-dict-search');
-    btn.textContent = '⏳';
-    btn.disabled = true;
+    btn.textContent = '⏳'; btn.disabled = true;
     try {
       const result = await dictSearch(term, S.lang);
       if (!result) showToast('검색 결과가 없어요', true);
       else setAutoFill(result);
-    } catch (e) {
-      showToast('검색 중 오류가 발생했어요', true);
-    } finally {
-      btn.textContent = '🔍';
-      btn.disabled = false;
-    }
+    } catch { showToast('검색 중 오류가 발생했어요', true); }
+    finally { btn.textContent = '🔍'; btn.disabled = false; }
   });
 
   document.getElementById('wf-word').addEventListener('keydown', e => {
@@ -1329,24 +1335,24 @@ function showWordForm(body, word) {
 
   document.getElementById('wf-cancel').onclick = () => { area.innerHTML = ''; };
   document.getElementById('wf-save').onclick = async () => {
-    const w = document.getElementById('wf-word').value.trim();
-    const m = document.getElementById('wf-mean').value.trim();
+    const w    = document.getElementById('wf-word').value.trim();
+    const m    = document.getElementById('wf-mean').value.trim();
     if (!w || !m) { showToast('단어와 뜻을 입력하세요', true); return; }
-    const tag = isEdit ? (word.태그 || '몰라요') : '몰라요';
-    const row = [
-      S.lang, w, _wfKanji, m,
-      document.getElementById('wf-pron').value,
+    const tag  = isEdit ? (word.외웠는지 || '몰라요') : '몰라요';
+    const reading = document.getElementById('wf-pron').value;
+    const pos     = document.getElementById('wf-pos').value;
+    const row  = [S.lang, w, reading, m, pos,
       document.getElementById('wf-ex').value,
       document.getElementById('wf-exmean').value,
       tag,
     ];
     if (isEdit) {
       await sheetsUpdate('단어장', word._row, row);
-      Object.assign(word, { 언어:S.lang, 단어:w, 한자:_wfKanji, 뜻:m, 발음:row[4], 예문:row[5], 예문해석:row[6], 태그:tag });
+      Object.assign(word, { 언어:S.lang, 단어:w, 읽는법:reading, 뜻:m, 품사:pos, 예문:row[5], 예문해석:row[6], 외웠는지:tag });
     } else {
       await sheetsAppend('단어장', row);
       const rows = await sheetsRead('단어장');
-      S.words = parseRows(rows, ['언어', '단어', '한자', '뜻', '발음', '예문', '예문해석', '태그']);
+      S.words = parseRows(rows, ['언어', '단어', '읽는법', '뜻', '품사', '예문', '예문해석', '외웠는지']);
     }
     area.innerHTML = '';
     renderWords(body);
@@ -1369,7 +1375,7 @@ function renderFlashCard(body) {
     <div class="flashcard-wrap">
       <div class="fc-count">${(S.flashIdx % list.length) + 1} / ${list.length}</div>
       <div class="flashcard${S.flashFlipped ? ' flipped' : ''}">
-        ${cur.발음 ? `<div class="fc-reading-top">${cur.발음}</div>` : ''}
+        ${cur.읽는법 ? `<div class="fc-reading-top">${cur.읽는법}</div>` : ''}
         <div class="fc-word">${cur.단어}</div>
         <div class="fc-meaning">
           <div>${cur.뜻}</div>
@@ -1405,8 +1411,8 @@ function renderFlashCard(body) {
   document.getElementById('fc-exit').onclick = () => { S.flashMode = false; renderLangBody(); };
 
   const setTag = async tag => {
-    cur.태그 = tag;
-    const row = [cur.언어, cur.단어, cur.한자, cur.뜻, cur.발음, cur.예문, cur.예문해석, tag];
+    cur.외웠는지 = tag;
+    const row = [cur.언어, cur.단어, cur.읽는법, cur.뜻, cur.품사, cur.예문, cur.예문해석, tag];
     await sheetsUpdate('단어장', cur._row, row);
     showToast(`"${cur.단어}" → ${tag}`);
     S.flashIdx = (S.flashIdx + 1) % list.length;
@@ -2354,6 +2360,7 @@ function onPinSuccess() {
       hideLoading();
       initNav();
       initLangTab();
+      _updateDuoTab();
       initPullToRefresh();
       _appReady = true;
       switchTab('home');

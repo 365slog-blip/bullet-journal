@@ -538,36 +538,39 @@ h1,h2,h3,h4{font-family:var(--font-b);}
 }
 .word-table input:focus,.word-table select:focus{border-bottom-color:var(--accent);}
 .word-add-row td{background:var(--aclt);}
-/* ── 단어 카드 리스트 ──────────────────────────────────────── */
-.word-list-wrap,#word-list-wrap{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
-.word-card{
-  background:var(--card);border:1px solid var(--border);border-radius:10px;
-  padding:12px 14px;display:flex;flex-direction:column;gap:5px;
+/* ── 단어 리스트 행 ───────────────────────────────────────── */
+#word-list-wrap{display:flex;flex-direction:column;margin-top:4px;}
+.word-row{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:9px 10px;border-bottom:1px solid var(--border);
+  font-size:.83rem;position:relative;
 }
-.word-card-top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
-.word-card-word{font-size:1.15rem;font-weight:700;color:var(--accent);}
-.word-card-pron{font-size:.78rem;color:var(--text3);}
-.word-card-mean{font-size:.88rem;color:var(--text);line-height:1.5;}
-.word-card-pos{
-  display:inline-block;font-size:.68rem;padding:1px 7px;
-  border-radius:10px;background:var(--aclt);color:var(--accent);font-weight:600;
+.word-row:last-child{border-bottom:none;}
+.word-row:hover{background:var(--bg2);}
+.word-row-main{
+  display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px;flex:1;min-width:0;
 }
-.word-card-ex-wrap{
-  border-left:2px solid var(--border);padding-left:8px;margin-top:2px;
-  display:flex;flex-direction:column;gap:2px;
+.word-row-word{font-weight:700;color:var(--text);flex-shrink:0;}
+.word-row-pron{color:var(--text3);flex-shrink:0;}
+.word-row-mean{color:var(--text);flex:1;min-width:0;}
+.word-row-pos{
+  font-size:.68rem;padding:1px 6px;border-radius:8px;
+  background:var(--aclt);color:var(--accent);font-weight:600;flex-shrink:0;white-space:nowrap;
 }
-.word-card-ex{font-size:.78rem;color:var(--text2);line-height:1.5;}
-.word-card-exmean{font-size:.74rem;color:var(--text3);}
-.word-card-footer{display:flex;align-items:center;margin-top:4px;}
-.word-tag-chip{
-  font-size:.68rem;padding:2px 8px;border-radius:10px;font-weight:600;
+.word-row-ex{
+  display:flex;flex-direction:column;gap:1px;
+  color:var(--text3);font-size:.78rem;width:100%;
+  border-left:2px solid var(--border);padding-left:7px;margin-top:1px;
 }
-.tag-know{background:#e8f8e8;color:#2e7d32;}
-.tag-unsure{background:#fef9e7;color:#b07a00;}
-.tag-dontknow{background:#fde8e8;color:#c0392b;}
-[data-theme="dark"] .tag-know{background:#102210;color:#70c080;}
-[data-theme="dark"] .tag-unsure{background:#2a2210;color:#e0b050;}
-[data-theme="dark"] .tag-dontknow{background:#3a1010;color:#e07070;}
+.word-row-exmean{color:var(--text3);font-size:.74rem;}
+.word-row-actions{
+  display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .15s;
+}
+.word-row:hover .word-row-actions{opacity:1;}
+@media(max-width:768px){
+  .word-row-actions{opacity:1;}
+  .word-row-main{gap:4px 8px;}
+}
 .memo-badge{
   display:inline-block;padding:2px 7px;border-radius:8px;font-size:.7rem;cursor:pointer;
 }
