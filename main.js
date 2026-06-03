@@ -1128,7 +1128,7 @@ function renderWords(body) {
     </div>
     <div class="word-table-wrap">
       <table class="word-table">
-        <thead><tr><th>단어</th><th>한자</th><th>뜻</th><th>발음</th><th>예문</th><th>예문해석</th><th></th></tr></thead>
+        <thead><tr><th>단어</th><th>뜻</th><th>발음</th><th>예문</th><th>예문해석</th><th></th></tr></thead>
         <tbody id="word-tbody"></tbody>
       </table>
     </div>
@@ -1167,10 +1167,11 @@ function renderWordTable(body, search) {
   }
   tbody.innerHTML = list.map(w => `
     <tr>
-      <td><strong>${w.단어}</strong></td>
-      <td style="color:var(--text3)">${w.한자||''}</td>
+      <td>
+        <strong>${w.단어}</strong>
+        ${w.발음 ? `<div style="font-size:.7rem;color:var(--text3)">${w.발음}</div>` : ''}
+      </td>
       <td>${w.뜻}</td>
-      <td style="font-size:.75rem;color:var(--text2)">${w.발음||''}</td>
       <td style="font-size:.75rem;color:var(--text3)">${w.예문||''}</td>
       <td style="font-size:.75rem;color:var(--text3)">${w.예문해석||''}</td>
       <td style="white-space:nowrap">
@@ -1178,7 +1179,7 @@ function renderWordTable(body, search) {
         <button class="word-del-btn" data-row="${w._row}">✕</button>
       </td>
     </tr>
-  `).join('') || `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">단어가 없습니다</td></tr>`;
+  `).join('') || `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3)">단어가 없습니다</td></tr>`;
 
   tbody.querySelectorAll('.word-del-btn').forEach(b =>
     b.addEventListener('click', async () => {
@@ -1200,67 +1201,76 @@ function renderWordTable(body, search) {
 }
 
 async function dictSearch(term, lang) {
+  const posKoMap = {
+    noun:'명사', verb:'동사', adjective:'형용사', adverb:'부사',
+    preposition:'전치사', conjunction:'접속사', interjection:'감탄사',
+    pronoun:'대명사', exclamation:'감탄사', abbreviation:'약어',
+    'auxiliary verb':'조동사', 'phrasal verb':'구동사',
+  };
+
   if (lang === '영어') {
     const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(term)}`);
     if (!r.ok) return null;
     const data = await r.json();
-    const entry  = data[0];
-    const phon   = entry.phonetics?.find(p => p.text)?.text || '';
+    if (!Array.isArray(data) || !data[0]) return null;
+    const entry   = data[0];
+    const phon    = entry.phonetics?.find(p => p.text)?.text || '';
     const meaning = entry.meanings?.[0];
-    const pos    = meaning?.partOfSpeech || '';
-    const def    = meaning?.definitions?.[0];
-    const mean   = def?.definition || '';
-    const ex     = def?.example   || '';
-    return { pron: phon, mean: `[${pos}] ${mean}`.trim(), ex, exmean: '', kanji: '' };
+    const pos     = meaning?.partOfSpeech || '';
+    const posKo   = posKoMap[pos] || pos;
+    const def     = meaning?.definitions?.[0];
+    const defText = def?.definition || '';
+    const ex      = def?.example   || '';
+    const mean    = posKo ? `${posKo}: ${defText}` : defText;
+    return { pron: phon, mean, ex, exmean: '', kanji: '' };
   }
+
   if (lang === '일본어') {
-    const r = await fetch('https://jotoba.de/api/search/words', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: term, language: 'Korean', no_english: false }),
-    });
+    const r = await fetch(`https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(term)}`);
     if (!r.ok) return null;
     const data = await r.json();
-    const entry = data.words?.[0];
+    const entry = data?.data?.[0];
     if (!entry) return null;
-    const reading = entry.reading?.kana  || '';
-    const kanji   = entry.reading?.kanji || '';
-    const senses  = entry.senses?.[0];
-    const pos     = senses?.part_of_speech?.[0] || '';
-    const mean    = senses?.glosses?.join(', ')  || '';
-    const ex      = entry.sentences?.[0]?.content || '';
-    const exmean  = entry.sentences?.[0]?.translation || '';
-    return { pron: reading, mean: `[${pos}] ${mean}`.replace(/^\[\] /,''), ex, exmean, kanji };
+    const jp      = entry.japanese?.[0] || {};
+    const reading = jp.reading || '';
+    const kanji   = jp.word    || '';
+    const sense   = entry.senses?.[0] || {};
+    const defs    = sense.english_definitions || [];
+    const mean    = defs.join(', ');
+    return { pron: reading, mean, ex: '', exmean: '', kanji };
   }
+
   return null;
 }
 
 function showWordForm(body, word) {
-  const isEdit = !!word;
-  const area   = document.getElementById('word-form-area');
+  const isEdit  = !!word;
+  const area    = document.getElementById('word-form-area');
   if (!area) return;
+  // 한자는 UI에서 숨기지만 시트 컬럼 유지용으로 변수에 보관
+  let _wfKanji  = isEdit ? (word.한자 || '') : '';
+  const pronLbl = S.lang === '일본어' ? '읽는법(히라가나)' : '발음기호';
+
   area.innerHTML = `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:14px;display:flex;flex-direction:column;gap:10px">
       <h4 style="font-size:.88rem;font-weight:600">${isEdit ? '단어 수정' : '단어 추가'}</h4>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div>
-          <label style="font-size:.72rem;color:var(--text3)">단어 *</label>
-          <div style="display:flex;gap:6px">
-            <input class="form-input" id="wf-word" value="${isEdit?word.단어:''}" style="flex:1">
-            <button class="wf-dict-btn" id="wf-dict-search" title="사전 검색">🔍</button>
-          </div>
+      <div>
+        <label style="font-size:.72rem;color:var(--text3)">단어 *</label>
+        <div style="display:flex;gap:6px">
+          <input class="form-input" id="wf-word" value="${isEdit ? word.단어 : ''}" style="flex:1">
+          <button class="wf-dict-btn" id="wf-dict-search" title="사전 검색">🔍</button>
         </div>
-        <div><label style="font-size:.72rem;color:var(--text3)">한자</label>
-          <input class="form-input" id="wf-kanji" value="${isEdit?(word.한자||''):''}"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div><label style="font-size:.72rem;color:var(--text3)">뜻 *</label>
-          <input class="form-input" id="wf-mean" value="${isEdit?word.뜻:''}"></div>
-        <div><label style="font-size:.72rem;color:var(--text3)">${S.lang === '일본어' ? '읽는법(히라가나)' : '발음기호'}</label>
-          <input class="form-input" id="wf-pron" value="${isEdit?(word.발음||''):''}"></div>
+          <input class="form-input" id="wf-mean" value="${isEdit ? word.뜻 : ''}"></div>
+        <div><label style="font-size:.72rem;color:var(--text3)">${pronLbl}</label>
+          <input class="form-input" id="wf-pron" value="${isEdit ? (word.발음 || '') : ''}"></div>
       </div>
       <div><label style="font-size:.72rem;color:var(--text3)">예문</label>
-        <input class="form-input" id="wf-ex" value="${isEdit?(word.예문||''):''}"></div>
+        <input class="form-input" id="wf-ex" value="${isEdit ? (word.예문 || '') : ''}"></div>
       <div><label style="font-size:.72rem;color:var(--text3)">예문 해석</label>
-        <input class="form-input" id="wf-exmean" value="${isEdit?(word.예문해석||''):''}"></div>
+        <input class="form-input" id="wf-exmean" value="${isEdit ? (word.예문해석 || '') : ''}"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn-outline" id="wf-cancel">취소</button>
         <button class="btn-primary" id="wf-save">저장</button>
@@ -1268,9 +1278,8 @@ function showWordForm(body, word) {
     </div>
   `;
 
-  const setAutoFill = (result) => {
-    const fields = ['wf-mean','wf-pron','wf-ex','wf-exmean','wf-kanji'];
-    fields.forEach(id => {
+  const setAutoFill = result => {
+    ['wf-mean','wf-pron','wf-ex','wf-exmean'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.classList.remove('wf-autofilled');
     });
@@ -1284,7 +1293,7 @@ function showWordForm(body, word) {
     fill('wf-pron',   result.pron);
     fill('wf-ex',     result.ex);
     fill('wf-exmean', result.exmean);
-    fill('wf-kanji',  result.kanji);
+    if (result.kanji) _wfKanji = result.kanji;
   };
 
   document.getElementById('wf-dict-search').addEventListener('click', async () => {
@@ -1295,7 +1304,7 @@ function showWordForm(body, word) {
     btn.disabled = true;
     try {
       const result = await dictSearch(term, S.lang);
-      if (!result) { showToast('검색 결과가 없어요', true); }
+      if (!result) showToast('검색 결과가 없어요', true);
       else setAutoFill(result);
     } catch (e) {
       showToast('검색 중 오류가 발생했어요', true);
@@ -1305,7 +1314,6 @@ function showWordForm(body, word) {
     }
   });
 
-  // Enter키로 검색
   document.getElementById('wf-word').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.isComposing) document.getElementById('wf-dict-search').click();
   });
@@ -1316,9 +1324,8 @@ function showWordForm(body, word) {
     const m = document.getElementById('wf-mean').value.trim();
     if (!w || !m) { showToast('단어와 뜻을 입력하세요', true); return; }
     const tag = isEdit ? (word.태그 || '몰라요') : '몰라요';
-    const row = [S.lang, w,
-      document.getElementById('wf-kanji').value,
-      m,
+    const row = [
+      S.lang, w, _wfKanji, m,
       document.getElementById('wf-pron').value,
       document.getElementById('wf-ex').value,
       document.getElementById('wf-exmean').value,
@@ -1326,7 +1333,7 @@ function showWordForm(body, word) {
     ];
     if (isEdit) {
       await sheetsUpdate('단어장', word._row, row);
-      Object.assign(word, { 언어:S.lang, 단어:w, 한자:row[2], 뜻:m, 발음:row[4], 예문:row[5], 예문해석:row[6], 태그:tag });
+      Object.assign(word, { 언어:S.lang, 단어:w, 한자:_wfKanji, 뜻:m, 발음:row[4], 예문:row[5], 예문해석:row[6], 태그:tag });
     } else {
       await sheetsAppend('단어장', row);
       const rows = await sheetsRead('단어장');
@@ -1353,12 +1360,11 @@ function renderFlashCard(body) {
     <div class="flashcard-wrap">
       <div class="fc-count">${(S.flashIdx % list.length) + 1} / ${list.length}</div>
       <div class="flashcard${S.flashFlipped ? ' flipped' : ''}">
+        ${cur.발음 ? `<div class="fc-reading-top">${cur.발음}</div>` : ''}
         <div class="fc-word">${cur.단어}</div>
-        ${cur.한자 ? `<div class="fc-reading" style="font-size:1rem">${cur.한자}</div>` : ''}
         <div class="fc-meaning">
-          ${cur.뜻}
-          ${cur.발음 ? `<div class="fc-reading">[${cur.발음}]</div>` : ''}
-          ${cur.예문 ? `<div class="fc-reading" style="font-size:.75rem;margin-top:8px;color:var(--text3)">${cur.예문}</div>` : ''}
+          <div>${cur.뜻}</div>
+          ${cur.예문 ? `<div class="fc-reading" style="margin-top:10px">${cur.예문}</div>` : ''}
           ${cur.예문해석 ? `<div class="fc-reading" style="font-size:.72rem;color:var(--text3)">${cur.예문해석}</div>` : ''}
         </div>
         <div class="fc-hint">탭하여 뒤집기</div>
