@@ -564,6 +564,48 @@ h1,h2,h3,h4{font-family:var(--font-b);}
   padding:3px 8px;background:var(--accent);color:#fff;border-radius:5px;font-size:.72rem;cursor:pointer;
 }
 
+/* ── wt-* word table (v1.6.1) ─────────────────────────── */
+.wt-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.wt-table{width:100%;border-collapse:collapse;font-size:.83rem;table-layout:auto;}
+.wt-table th{
+  background:var(--bg2);padding:8px 10px;text-align:left;
+  color:var(--text3);font-weight:500;border-bottom:2px solid var(--border);
+  white-space:nowrap;
+}
+.wt-row td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.wt-row:hover td{background:var(--bg2);}
+.wt-td-word{white-space:nowrap;}
+.wt-td-pron{color:var(--text3);font-size:.78rem;white-space:nowrap;}
+.wt-td-mean{line-height:1.45;}
+.wt-td-pos,.wt-td-act{white-space:nowrap;}
+.wt-td-ex{font-size:.78rem;line-height:1.4;}
+.wt-btns{display:flex;gap:4px;opacity:0;transition:opacity .15s;}
+.wt-row:hover .wt-btns{opacity:1;}
+.wt-btn{
+  color:var(--text3);font-size:.8rem;padding:2px 6px;border-radius:4px;cursor:pointer;
+  border:1px solid transparent;background:transparent;
+}
+.wt-btn:hover{color:var(--accent);background:var(--aclt);}
+.wt-btn-del:hover{color:var(--danger);background:var(--bg2);}
+.wt-pos-badge{
+  font-size:.68rem;padding:1px 6px;border-radius:8px;white-space:nowrap;
+  background:var(--aclt);color:var(--accent);font-weight:600;
+}
+.wt-ex-orig{color:var(--text2);}
+.wt-ex-tl{color:var(--text3);font-size:.74rem;margin-top:2px;}
+.wt-det{display:none;}
+.wt-det.wt-expanded{display:table-row;}
+.wt-det td{padding:8px 14px 12px;border-bottom:1px solid var(--border);background:var(--bg2);}
+.wt-det-body{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.8rem;}
+.wt-det-ex{font-size:.78rem;line-height:1.45;color:var(--text2);}
+.wt-empty{text-align:center;padding:24px;color:var(--text3);}
+@media(max-width:768px){
+  .wt-th-pos,.wt-th-ex,.wt-th-act{display:none;}
+  .wt-btns{opacity:1;}
+  .wt-row{cursor:pointer;}
+  .wt-td-pos,.wt-td-ex,.wt-td-act{display:none;}
+}
+
 /* Flashcard */
 .flashcard-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 0;}
 .flashcard{

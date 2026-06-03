@@ -1124,28 +1124,34 @@ function renderWords(body) {
   if (S.flashMode) { renderFlashCard(body); return; }
 
   body.innerHTML = `
-    <div class="word-toolbar" style="flex-wrap:wrap;gap:8px">
-      <input style="padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;color:var(--text);width:140px" id="word-search" placeholder="단어/뜻 검색">
+    <div class="word-toolbar">
+      <input class="word-search-inp" id="word-search" placeholder="단어/뜻 검색">
       <div class="filter-chips" id="word-tag-chips">
         <button class="filter-chip${!S.wordFilter||S.wordFilter==='all'?' active':''}" data-tag="all">전체</button>
         <button class="filter-chip${S.wordFilter==='알아요'?' active':''}" data-tag="알아요">알아요</button>
         <button class="filter-chip${S.wordFilter==='헷갈려요'?' active':''}" data-tag="헷갈려요">헷갈려요</button>
         <button class="filter-chip${S.wordFilter==='몰라요'?' active':''}" data-tag="몰라요">몰라요</button>
       </div>
-      <div style="display:flex;gap:8px;margin-left:auto">
+      <div style="display:flex;gap:8px;margin-left:auto;flex-shrink:0">
         <button class="btn-outline-sm" id="flash-btn">플래시카드</button>
         <button class="btn-primary" style="font-size:.82rem;padding:7px 14px" id="add-word-btn">+ 단어</button>
       </div>
     </div>
-    <div class="word-table-wrap">
-      <table class="word-table">
-        <thead><tr>
-          <th>단어</th><th>읽는법</th><th>뜻</th><th>품사</th><th>예문</th><th></th>
-        </tr></thead>
+    <div class="wt-wrap">
+      <table class="wt-table">
+        <thead>
+          <tr>
+            <th>단어</th>
+            <th>읽는법</th>
+            <th>뜻</th>
+            <th class="wt-th-pos">품사</th>
+            <th class="wt-th-ex">예문</th>
+            <th class="wt-th-act"></th>
+          </tr>
+        </thead>
         <tbody id="word-tbody"></tbody>
       </table>
     </div>
-    <div id="word-list-wrap" style="display:none"></div>
     <div id="word-form-area"></div>
   `;
 
@@ -1155,49 +1161,72 @@ function renderWords(body) {
   document.getElementById('add-word-btn').onclick = () => showWordForm(body, null);
   const searchEl = document.getElementById('word-search');
   searchEl.addEventListener('input', e => renderWordTable(body, e.target.value));
-
-  document.getElementById('word-tag-chips').querySelectorAll('.filter-chip').forEach(btn => {
+  document.getElementById('word-tag-chips').querySelectorAll('.filter-chip').forEach(btn =>
     btn.addEventListener('click', () => {
       S.wordFilter = btn.dataset.tag;
       document.querySelectorAll('#word-tag-chips .filter-chip').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderWordTable(body, searchEl.value);
-    });
-  });
-
+    })
+  );
   renderWordTable(body, '');
 }
 
 function renderWordTable(body, search) {
   const tbody = document.getElementById('word-tbody');
   if (!tbody) return;
+
   let list = getWordsForLang();
-  if (S.wordFilter && S.wordFilter !== 'all') {
+  if (S.wordFilter && S.wordFilter !== 'all')
     list = list.filter(w => w.외웠는지 === S.wordFilter);
-  }
   if (search) {
     const q = search.toLowerCase();
     list = list.filter(w => w.단어.toLowerCase().includes(q) || w.뜻.includes(q));
   }
 
-  tbody.innerHTML = list.length ? list.map(w => `
-    <tr class="word-row" data-row="${w._row}">
-      <td><strong>${w.단어}</strong></td>
-      <td style="color:var(--text3)">${w.읽는법||''}</td>
-      <td>${w.뜻}</td>
-      <td>${w.품사 ? `<span class="word-pos-badge">${w.품사}</span>` : ''}</td>
-      <td class="word-ex-cell">
-        ${w.예문 ? `<div>${w.예문}</div>` : ''}
-        ${w.예문해석 ? `<div class="word-exmean">${w.예문해석}</div>` : ''}
-      </td>
-      <td class="word-act-cell">
-        <div class="word-row-actions">
-          <button class="task-edit-btn word-save-btn" data-row="${w._row}" title="수정">✎</button>
-          <button class="task-edit-btn word-del-btn" data-row="${w._row}" title="삭제" style="color:var(--danger)">✕</button>
-        </div>
-      </td>
-    </tr>`
-  ).join('') : `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">단어가 없습니다</td></tr>`;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="wt-empty">단어가 없습니다</td></tr>`;
+    return;
+  }
+
+  // 각 단어마다 메인 행 + 모바일 확장 행 쌍으로 생성
+  tbody.innerHTML = list.map(w => {
+    const posBadge  = w.품사 ? `<span class="wt-pos-badge">${w.품사}</span>` : '';
+    const exHtml    = w.예문
+      ? `<div class="wt-ex-orig">${w.예문}</div>${w.예문해석 ? `<div class="wt-ex-tl">${w.예문해석}</div>` : ''}`
+      : '';
+    return `
+      <tr class="wt-row" data-row="${w._row}">
+        <td class="wt-td-word"><strong>${w.단어}</strong></td>
+        <td class="wt-td-pron">${w.읽는법||''}</td>
+        <td class="wt-td-mean">${w.뜻}</td>
+        <td class="wt-td-pos wt-th-pos">${posBadge}</td>
+        <td class="wt-td-ex wt-th-ex">${exHtml}</td>
+        <td class="wt-td-act wt-th-act">
+          <div class="wt-btns">
+            <button class="wt-btn word-save-btn" data-row="${w._row}" title="수정">✎</button>
+            <button class="wt-btn wt-btn-del word-del-btn" data-row="${w._row}" title="삭제">✕</button>
+          </div>
+        </td>
+      </tr>
+      <tr class="wt-det" data-for="${w._row}">
+        <td colspan="6">
+          <div class="wt-det-body">
+            ${posBadge}
+            ${exHtml ? `<div class="wt-det-ex">${exHtml}</div>` : ''}
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  // 모바일 행 클릭 → 확장
+  tbody.querySelectorAll('.wt-row').forEach(row => {
+    row.addEventListener('click', e => {
+      if (e.target.closest('.wt-btns')) return;
+      const det = tbody.querySelector(`.wt-det[data-for="${row.dataset.row}"]`);
+      if (det) det.classList.toggle('wt-expanded');
+    });
+  });
 
   tbody.querySelectorAll('.word-del-btn').forEach(b =>
     b.addEventListener('click', () => {
